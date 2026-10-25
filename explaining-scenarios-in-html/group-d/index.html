@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D 组 · 将来 required 匹配的两个语义决策点 —— 2 个特征测试的交互式图解</title>
+<style>
+:root{--bg:#fff;--panel:#f6f8fa;--bd:#d0d7de;--tx:#1f2328;--dim:#57606a;--file:#8250df;--given:#0969da;--when:#9a6700;--then:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:15px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--tx);background:var(--bg);padding:28px 40px;max-width:1180px;margin:0 auto}
+h1{font-size:24px;margin-bottom:6px}
+.sub{color:var(--dim);font-size:13px;margin-bottom:22px}
+h2{font-size:17px;margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+h3{font-size:14px;margin:14px 0 6px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.tcard{display:block;text-decoration:none;color:var(--tx);border:1px solid var(--bd);border-radius:10px;background:var(--panel);padding:12px 16px;transition:border-color .15s}
+.tcard:hover{border-color:var(--given)}
+.tcard .tc-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.tbadge{color:#fff;border-radius:6px;padding:1px 8px;font-size:13px;font-weight:700}
+.tname{font:12.5px Menlo,Consolas,monospace;color:var(--given)}
+.tone{font-size:13px}
+.tmeta{font-size:12px;color:var(--dim);margin-top:6px}
+.tmeta .v{color:var(--when)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;margin:8px 0 2px}
+.lg{display:flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.12)}
+/* 总览图 */
+.map{border:1px solid var(--bd);border-radius:10px;background:var(--panel);padding:18px;margin-top:8px;font-size:13px}
+.map-row{display:flex;gap:10px;align-items:stretch}
+.map-col{flex:1;display:flex;flex-direction:column;gap:8px}
+.mbox{border:1px solid var(--bd);border-radius:8px;background:#fff;padding:8px 12px}
+.mbox b{display:block;font-size:13px}
+.mbox .mfile{font:12px Menlo,Consolas,monospace;color:#8250df;background:#f0eaff;border-radius:4px;padding:0 6px;display:inline-block;margin:2px 0}
+.mbox .mdesc{font-size:12px;color:var(--dim)}
+.mbox .mlink{font-size:12px}
+.mbox .mlink a{color:var(--given);text-decoration:none}
+.mbox .mlink a:hover{text-decoration:underline}
+.dec1{border-top:3px solid var(--given)}
+.dec2{border-top:3px solid var(--file)}
+.merge{border:2px solid var(--red);background:#fff8c5}
+.out{border-top:3px solid var(--then)}
+.arrowbar{display:flex;gap:10px;margin:4px 0}
+.arrow{flex:1;text-align:center;color:var(--dim);font-size:18px}
+.small{font-size:12px;color:var(--dim)}
+code{font:12.5px Menlo,Consolas,monospace;background:var(--panel);border:1px solid var(--bd);border-radius:4px;padding:0 5px}
+.guide{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.gbox{border:1px solid var(--bd);border-radius:8px;background:#fff;padding:10px 14px}
+.gbox h3{margin-top:0}
+.gbox ul{padding-left:18px;font-size:13px}
+.foot{margin-top:30px;padding-top:8px;border-top:1px solid var(--bd);font-size:12px;color:var(--dim)}
+table.plain{border-collapse:collapse;font-size:12.5px;width:100%}
+table.plain th,table.plain td{border:1px solid var(--bd);padding:4px 8px;text-align:left;vertical-align:top}
+table.plain th{background:var(--panel)}
+</style>
+</head>
+<body>
+<h1>D 组 · 将来 required 匹配的两个语义决策点</h1>
+<div class="sub">HeadersCharacterizationTest · <code>RequirementAdjacent</code> 嵌套类 2 个特征测试的交互式图解 · 浅色主题 · 每页从"虚构的等价 CSV 文件"出发，逐步走完 文件 → 等价桥 → given → when → then</div>
+
+<h2>① 先看决策地图：setRequiredHeaders 必须显式决策的两个行为点</h2>
+<div class="map">
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox dec1"><b>决策点 1（D1 落点）：匹配做不做 trim？</b>
+        <div class="mdesc">现状 = <b>精确匹配</b>：<code>DEFAULT</code> 的 <code>trim=false</code>、<code>ignoreSurroundingSpaces=false</code>，<code>:672</code> put 原样保留空格 → <code>" currency "</code> 是<b>独立 key</b>。</div>
+        <div class="mfile">d1.csv：id,␠currency␠,amount␍␊1,USD,100␍␊</div>
+        <div class="mdesc">get(" currency ")="USD" 命中（index=1）；get("currency") 抛 IAE：<code>Mapping for currency not found, expected one of [id,  currency , amount]</code>（:137，keySet 里就是带空格的 <code> currency </code>）。若 required 校验做 trim 而取值不做 trim → <b>"校验过了、get 却取不到"的自相矛盾</b>。</div>
+        <div class="mlink">→ <a href="d1-headerNameWithSurroundingSpacesNeedsExactMatch.html">D1 · 表头名带前后空格：精确匹配不 trim</a></div>
+      </div>
+    </div>
+    <div class="map-col">
+      <div class="mbox dec2"><b>决策点 2（D2 落点）：匹配对象是"最终生效表头"，不是文件文本</b>
+        <div class="mdesc">手工表头绑定<b>位置</b>：<code>:644</code> 消费丢弃文件首行，<code>:649</code> <code>headerRecord = formatHeader</code>——文件首行文本<b>从不参与映射</b>；colX→0 照常取值。</div>
+        <div class="mfile">d2.csv：id,currency,amount␍␊1,USD,100␍␊（首行与配置不同名）</div>
+        <div class="mdesc">headerMap = <code>{colX=0, currency=1, amount=2}</code>（全部来自配置数组）。required 校验必须放在<b>汇合点 createHeaders() 之后</b>；放在 CSVFormat 校验（build 时）里会<b>漏掉文件表头</b>。</div>
+        <div class="mlink">→ <a href="d2-manualHeaderBindsPositionsNotFileHeaderText.html">D2 · 手工表头绑定位置，文件首行文本不参与映射</a></div>
+      </div>
+    </div>
+  </div>
+  <div class="arrowbar"><div class="arrow">↓</div><div class="arrow">↓</div></div>
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox merge"><b>汇合点：CSVParser.createHeaders()（CSVParser.java:628-683）</b>
+        <div class="mdesc">两条来源链（手工 :649 / 自动探测 :635-641）都到这里变成统一的表头世界：headerRecord + headerMap（名 → 下标）。D1/D2 共同说明：将来 setRequiredHeaders 校验的对象就是这个汇合产物（ch02-1-3 §3 候选②：映射循环 :655-678 之后、:682 return 之前），且必须显式决定 trim 与否——ch02-1-2 第二部分："二者共同决定：将来 requiredHeaders 与实际表头做'相等'还是'trim 后相等'匹配，是必须显式决策的行为点。"</div>
+      </div>
+    </div>
+  </div>
+  <div class="arrowbar"><div class="arrow">↓</div></div>
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox out"><b>回引前三组的铺垫</b>
+        <div class="mdesc">
+          <a href="../group-a/index.html">A 组 · 表头从哪来</a>——三种来源（无 / 文件自动探测 / 手工配置）汇合到同一个 createHeaders()；<br>
+          <a href="../group-b/index.html">B 组 · 按列名取值的边界</a>——:137 的"晚失败"现状（D1 的异常卡片正是它的带空格变体）；<br>
+          <a href="../group-c/index.html">C 组 · 重复列名 / 空列名的容错</a>——表头校验已存在的两个时机（build 时 / parse 时），是"早报错"的现成先例。
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="small">一句话版本：<b>D 组两个测试共同决定 <code>setRequiredHeaders</code> 必须显式决策的两个行为点——匹配语义（trim？）与校验对象（headerMap 而非文件）。</b></div>
+
+<h2>② 阅读指南：怎么用这些交互页</h2>
+<div class="guide">
+  <div class="gbox">
+    <h3>步进操作</h3>
+    <ul>
+      <li>底部按钮「◀ 上一步 / 下一步 ▶」，或键盘 <code>←</code> / <code>→</code> / 空格；</li>
+      <li>顶部一排圆点是全部步骤（颜色=阶段），点击可跳；</li>
+      <li>点击<b>测试代码的任意一行</b>，直接跳到覆盖它的那一步；</li>
+      <li>「自动播放」开关：约 6 秒/步，播完自动停；</li>
+      <li>URL 支持 <code>?step=N</code> 直达任意步（0 起），例如 <code>d1-….html?step=8</code>。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>画面分区</h3>
+    <ul>
+      <li><b>左侧·测试代码</b>：全部行从第 0 步就可见（先有地图），当前步覆盖的行高亮，行号 = 测试文件内真实行号；</li>
+      <li><b>左侧下方·源码剧场</b>：随步骤展开的源码摘录卡片（真实源码 + 行号），<span style="color:#cf222e">●</span> 红点 = ch02-1-3 建议断点；</li>
+      <li><b>右侧·四个面板</b>：文件字节视图（紫色高亮当前被消费的行，<code>\r\n</code> 显式可见；D1 里列名两端的空格用紫底框出）→ 解析器状态（headerRecord / headerMap / records 随步生长）→ 变量监视盒 → 断言·异常·差异。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>颜色图例</h3>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="background:#8250df"></span>文件 / 等价桥</span>
+      <span class="lg"><span class="sw" style="background:#0969da"></span>given（准备）</span>
+      <span class="lg"><span class="sw" style="background:#9a6700"></span>when（被测行为）</span>
+      <span class="lg"><span class="sw" style="background:#1a7f37"></span>then（断言）</span>
+      <span class="lg"><span class="sw" style="background:#cf222e"></span>断点 / 异常</span>
+    </div>
+    <ul>
+      <li>断言表里"期望"= 测试写死的值，"实际"= ch02-1-2 / ch02-1-3 实测记载的当前行为——<b>特征测试就是把现状当期望钉住</b>；</li>
+      <li>D1 页的命中与异常<b>并列展示</b>：同一张 headerMap，get(" currency ") 与 get("currency") 两种结局；D2 页的监视盒并列两个"首行"（headerRecord vs 被丢弃的文件首行文本）。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>为什么每页都从"虚构的 CSV 文件"开始？</h3>
+    <ul>
+      <li>2 个测试实际都用 <code>new StringReader("…")</code> 内联字符串喂数据，仓库里没有 .csv 文件；</li>
+      <li>解析入口只认 Reader：<code>format.parse(Reader)</code>（CSVFormat.java:2207）与 <code>CSVParser.parse(Path,…)</code>（:407）汇合到同一构造器（:524），表头在构造期定案（:528）；</li>
+      <li>所以"内联字符串"与"读文件"解析路径完全相同——每页第 0 步给出等价文件画面，第 1 步把这座桥讲透。</li>
+    </ul>
+  </div>
+</div>
+
+<h2>③ 两张交互图</h2>
+<div class="cards">
+  <a class="tcard" href="d1-headerNameWithSurroundingSpacesNeedsExactMatch.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">D1</span><span class="tname">headerNameWithSurroundingSpacesNeedsExactMatch</span></div>
+    <div class="tone">表头 <code>" currency "</code>（带前后空格）：get(" currency ") 命中 "USD"；get("currency") 抛 <code>Mapping for currency not found</code>——精确匹配不 trim。</div>
+    <div class="tmeta">12 步 · 文件 2×3（表头列名带前后空格） · 断言 3 条 · 含异常卡片</div>
+  </a>
+  <a class="tcard" href="d2-manualHeaderBindsPositionsNotFileHeaderText.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">D2</span><span class="tname">manualHeaderBindsPositionsNotFileHeaderText</span></div>
+    <div class="tone">setHeader("colX",…) + 文件首行写 id,currency,amount：映射只认配置（colX→0），文件首行文本不参与映射。</div>
+    <div class="tmeta">12 步 · 文件 2×3（首行与配置不同名） · 断言 3 条</div>
+  </a>
+</div>
+
+<h2>④ 2 个测试 × 决策点（速查表）</h2>
+<table class="plain">
+  <tr><th>测试</th><th>format 配置</th><th>文件形态</th><th>get("currency")（不带空格）</th><th>其他取值</th><th>headerMap</th></tr>
+  <tr><td><a href="d1-headerNameWithSurroundingSpacesNeedsExactMatch.html">D1</a></td><td><code>setHeader()</code> 自动探测 + skip（headerFromFirstRecord）</td><td>表头 <code>id, currency ,amount</code>（列名带前后空格）+ 1 数据行</td><td><b>抛 IAE</b>：<code>Mapping for currency not found, expected one of [id,  currency , amount]</code>（:137，精确匹配）</td><td>get(" currency ")="USD"（命中独立 key，index=1）</td><td>key 原样保留空格：<code>{id=0, " currency "=1, amount=2}</code></td></tr>
+  <tr><td><a href="d2-manualHeaderBindsPositionsNotFileHeaderText.html">D2</a></td><td>手工 <code>setHeader("colX","currency","amount")</code> + skip=true</td><td>文件首行 <code>id,currency,amount</code>（与配置<b>不同名</b>）+ 1 数据行</td><td>"USD"（index 1，来自配置）</td><td>get("colX")="1"（index 0）；文件首行文本被 :644 消费丢弃</td><td><code>{colX=0, currency=1, amount=2}</code>（<b>全部来自配置数组</b>）</td></tr>
+</table>
+<div class="small">D1 定匹配语义（trim 与否），D2 定校验对象（headerMap 而非文件文本）——两个决策点都落在汇合点 createHeaders() 的产物上。</div>
+
+<div class="foot">ch02-1-17 · D 组 · ch02-after (24562da2) · 行号与行为结论全部来自 ch02-1-2-scenarios-for-warming-up.md 与 ch02-1-3-debug-guide.md 的实测记载 · 测试代码逐字取自 HeadersCharacterizationTest.java，未做任何改动</div>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B 组 · 按列名取值的边界 —— 5 个特征测试的交互式图解</title>
+<style>
+:root{--bg:#fff;--panel:#f6f8fa;--bd:#d0d7de;--tx:#1f2328;--dim:#57606a;--file:#8250df;--given:#0969da;--when:#9a6700;--then:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:15px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--tx);background:var(--bg);padding:28px 40px;max-width:1180px;margin:0 auto}
+h1{font-size:24px;margin-bottom:6px}
+.sub{color:var(--dim);font-size:13px;margin-bottom:22px}
+h2{font-size:17px;margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+h3{font-size:14px;margin:14px 0 6px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.tcard{display:block;text-decoration:none;color:var(--tx);border:1px solid var(--bd);border-radius:10px;background:var(--panel);padding:12px 16px;transition:border-color .15s}
+.tcard:hover{border-color:var(--given)}
+.tcard .tc-top{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.tbadge{color:#fff;border-radius:6px;padding:1px 8px;font-size:13px;font-weight:700}
+.tname{font:12.5px Menlo,Consolas,monospace;color:var(--given)}
+.tone{font-size:13px}
+.tmeta{font-size:12px;color:var(--dim);margin-top:6px}
+.tmeta .v{color:var(--when)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;margin:8px 0 2px}
+.lg{display:flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.12)}
+/* 总览图 */
+.map{border:1px solid var(--bd);border-radius:10px;background:var(--panel);padding:18px;margin-top:8px;font-size:13px}
+.map-row{display:flex;gap:10px;align-items:stretch}
+.map-col{flex:1;display:flex;flex-direction:column;gap:8px}
+.mbox{border:1px solid var(--bd);border-radius:8px;background:#fff;padding:8px 12px}
+.mbox b{display:block;font-size:13px}
+.mbox .mfile{font:12px Menlo,Consolas,monospace;color:#8250df;background:#f0eaff;border-radius:4px;padding:0 6px;display:inline-block;margin:2px 0}
+.mbox .mdesc{font-size:12px;color:var(--dim)}
+.mbox .mlink{font-size:12px}
+.mbox .mlink a{color:var(--given);text-decoration:none}
+.mbox .mlink a:hover{text-decoration:underline}
+.src1{border-top:3px solid #8c959f}
+.src2{border-top:3px solid var(--red)}
+.src3{border-top:3px solid var(--red)}
+.merge{border:2px solid var(--red);background:#fff8c5}
+.out{border-top:3px solid var(--then)}
+.side{border-top:3px solid var(--file)}
+.arrowbar{display:flex;gap:10px;margin:4px 0}
+.arrow{flex:1;text-align:center;color:var(--dim);font-size:18px}
+.small{font-size:12px;color:var(--dim)}
+code{font:12.5px Menlo,Consolas,monospace;background:var(--panel);border:1px solid var(--bd);border-radius:4px;padding:0 5px}
+.guide{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.gbox{border:1px solid var(--bd);border-radius:8px;background:#fff;padding:10px 14px}
+.gbox h3{margin-top:0}
+.gbox ul{padding-left:18px;font-size:13px}
+.foot{margin-top:30px;padding-top:8px;border-top:1px solid var(--bd);font-size:12px;color:var(--dim)}
+table.plain{border-collapse:collapse;font-size:12.5px;width:100%}
+table.plain th,table.plain td{border:1px solid var(--bd);padding:4px 8px;text-align:left;vertical-align:top}
+table.plain th{background:var(--panel)}
+</style>
+</head>
+<body>
+<h1>B 组 · 按列名取值的边界</h1>
+<div class="sub">HeadersCharacterizationTest · <code>NameAccessBoundaries</code> 嵌套类 5 个特征测试的交互式图解 · 浅色主题 · 每页从"虚构的等价 CSV 文件"出发，逐步走完 文件 → 等价桥 → given → when → then</div>
+
+<h2>① 先看总地图：按名取值的四条边界</h2>
+<div class="map">
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox merge"><b>汇合点：CSVRecord.get(String)（CSVRecord.java:130-146）</b>
+        <div class="mdesc">需求原文的痛点 <code>record.get("currency")</code> 就落在这个方法里。它内部先取 headerMap（:131），再分三段路径判定成败——B 组的前两个测试各钉住一段。</div>
+      </div>
+    </div>
+  </div>
+  <div class="arrowbar"><div class="arrow">↓</div><div class="arrow">↓</div><div class="arrow">↓</div></div>
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox src1"><b>路径 1：:132-133 无映射</b>
+        <div class="mdesc">headerMap == null（format 根本没配表头）→ 抛 <code>IllegalStateException</code>："No header mapping was specified…"</div>
+        <div class="mlink">→ <a href="../group-a/a1-noHeaderGetValueByIndexAndGetByNameThrows.html">A1 · A 组回响（更早一层的失败）</a></div>
+      </div>
+    </div>
+    <div class="map-col">
+      <div class="mbox src2"><b>路径 2：:137 名字不存在（显性缺名）</b>
+        <div class="mfile">b1.csv：id,currency,amount␍␊1,USD,100␍␊</div>
+        <div class="mdesc">表头齐全，<code>get("nope")</code> → 抛 <code>IllegalArgumentException</code>："Mapping for nope not found, expected one of [id, currency, amount]"——需求痛点本尊</div>
+        <div class="mlink">→ <a href="b1-getByNameWithUnknownNameThrowsMappingNotFound.html">B1 · 取不存在的列名</a></div>
+      </div>
+    </div>
+    <div class="map-col">
+      <div class="mbox src3"><b>路径 3：:139-145 映射到了但记录太短（隐性缺列）</b>
+        <div class="mfile">b2a.csv：1,USD␍␊（2 值对 3 列表头）</div>
+        <div class="mdesc">:140 取 values[2] 越界 → :141 捕获 → :143-144 转抛 <code>IllegalArgumentException</code>："Index for header 'amount' is 2 but CSVRecord only has 2 values!"</div>
+        <div class="mlink">→ <a href="b2a-headerLongerThanRecordThrowsIndexMessage.html">B2a · 表头比数据长</a></div>
+      </div>
+    </div>
+  </div>
+  <div class="arrowbar"><div class="arrow">↘</div><div class="arrow">↓</div></div>
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox out"><b>旁路 1：isConsistent()（CSVRecord.java:237-239）—— 长短记录的沉默警报</b>
+        <div class="mdesc">headerMap.size() 与 values.length 的相等判定：B2a（3≠2）与 B2b（3≠4）都返回 false，但都不抛错——它是查询方法，不问不说。B2b 还证明"不一致"与"可读"可并存（get("amount")="100" 正常返回）。</div>
+        <div class="mlink">→ <a href="b2a-headerLongerThanRecordThrowsIndexMessage.html">B2a · 表头多方向</a> ｜ <a href="b2b-recordLongerThanHeaderIsInconsistentButReadable.html">B2b · 数据多方向（b2a 的对照变体）</a></div>
+      </div>
+    </div>
+    <div class="map-col">
+      <div class="mbox side"><b>旁路 2：空输入形态（B3a/B3b）—— 两个世界可独立存在</b>
+        <div class="mfile">b3a.csv：id,currency,amount␍␊（仅表头行）<br>b3b.csv：（0 字节空文件）</div>
+        <div class="mdesc">records 为空时表头世界照常运转：B3a 的 headerMap 3 项齐全、getHeaderNames() 保序；B3b 的 headerMap 是<b>空 Map 而非 null</b>（:633 建 map、:637 EOF、:682 原样返回——踩坑 P7）。</div>
+        <div class="mlink">→ <a href="b3a-headerOnlyFileYieldsNoRecordsButHeaderMap.html">B3a · 仅表头行</a> ｜ <a href="b3b-emptyFileWithAutoDetectedHeaderYieldsEmptyHeaderMap.html">B3b · 空文件</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="small">一句话版本：<b>隐性缺列（B2a）与显性缺名（B1）都只在取值时才炸——这正是需求要替换的"晚失败"。</b>解析期永远安静；isConsistent() 是唯一的警报且默认沉默。</div>
+
+<h2>② 五张交互图（按推荐阅读顺序）</h2>
+<div class="cards">
+  <a class="tcard" href="b1-getByNameWithUnknownNameThrowsMappingNotFound.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">B1</span><span class="tname">getByNameWithUnknownNameThrowsMappingNotFound</span></div>
+    <div class="tone">需求痛点本尊：表头齐全、<code>get("nope")</code> 在 :137 抛 <code>IllegalArgumentException</code>，消息含 <code>Mapping for nope not found</code> 与 <code>expected one of</code>。</div>
+    <div class="tmeta">11 步 · 文件 2×3（1 表头 + 1 数据） · 断言 3 条</div>
+  </a>
+  <a class="tcard" href="b2a-headerLongerThanRecordThrowsIndexMessage.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">B2a</span><span class="tname">headerLongerThanRecordThrowsIndexMessage</span></div>
+    <div class="tone">表头 3 列 vs 数据 2 值：<code>get("amount")</code> 抛 Index 消息（:140→:143-144），<code>isConsistent()</code>=false——隐性缺列同样晚失败。</div>
+    <div class="tmeta">11 步 · 文件 1×2（纯数据短行） · 断言 4 条</div>
+  </a>
+  <a class="tcard" href="b2b-recordLongerThanHeaderIsInconsistentButReadable.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">B2b</span><span class="tname">recordLongerThanHeaderIsInconsistentButReadable</span> <span class="v">⟵ b2a 变体</span></div>
+    <div class="tone">数据 4 值 vs 表头 3 列：多出的列照常入记录，<code>get("amount")</code>="100" 仍可取，<code>isConsistent()</code>=false——"不一致"与"可读"并存。</div>
+    <div class="tmeta">10 步 · 文件 1×4（纯数据长行） · 断言 3 条 · 含 diff 对比卡</div>
+  </a>
+  <a class="tcard" href="b3a-headerOnlyFileYieldsNoRecordsButHeaderMap.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">B3a</span><span class="tname">headerOnlyFileYieldsNoRecordsButHeaderMap</span></div>
+    <div class="tone">仅表头行：records 为空，headerMap 3 项齐全、<code>getHeaderNames()</code>=[id, currency, amount] 保序——表头世界与数据世界独立存在。</div>
+    <div class="tmeta">9 步 · 文件 1×3（仅表头行） · 断言 3 条</div>
+  </a>
+  <a class="tcard" href="b3b-emptyFileWithAutoDetectedHeaderYieldsEmptyHeaderMap.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">B3b</span><span class="tname">emptyFileWithAutoDetectedHeaderYieldsEmptyHeaderMap</span></div>
+    <div class="tone">空文件 + 自动探测：headerMap 是<b>空 Map 不是 null</b>（:633→:637 EOF→:682）——踩坑 P7，required 校验只判 null 会漏。</div>
+    <div class="tmeta">9 步 · 文件 0×0（0 字节空文件） · 断言 3 条</div>
+  </a>
+</div>
+
+<h2>③ 阅读指南：怎么用这些交互页</h2>
+<div class="guide">
+  <div class="gbox">
+    <h3>步进操作</h3>
+    <ul>
+      <li>底部按钮「◀ 上一步 / 下一步 ▶」，或键盘 <code>←</code> / <code>→</code> / 空格；</li>
+      <li>顶部一排圆点是全部步骤（颜色=阶段），点击可跳；</li>
+      <li>点击<b>测试代码的任意一行</b>，直接跳到覆盖它的那一步；</li>
+      <li>「自动播放」开关：约 6 秒/步，播完自动停；</li>
+      <li>URL 支持 <code>?step=N</code> 直达任意步（0 起），例如 <code>b1-….html?step=7</code>。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>画面分区</h3>
+    <ul>
+      <li><b>左侧·测试代码</b>：全部行从第 0 步就可见（先有地图），当前步覆盖的行高亮，行号 = 测试文件内真实行号；</li>
+      <li><b>左侧下方·源码剧场</b>：随步骤展开的源码摘录卡片（真实源码 + 行号），<span style="color:#cf222e">●</span> 红点 = ch02-1-3 建议断点，灰色行 = 本场景走不到的分支；</li>
+      <li><b>右侧·四个面板</b>：文件字节视图（紫色高亮当前被消费的行，<code>\r\n</code> 显式可见）→ 解析器状态（headerRecord / headerMap / records 随步生长）→ 变量监视盒 → 断言·异常·差异。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>颜色图例</h3>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="background:#8250df"></span>文件 / 等价桥</span>
+      <span class="lg"><span class="sw" style="background:#0969da"></span>given（准备）</span>
+      <span class="lg"><span class="sw" style="background:#9a6700"></span>when（被测行为）</span>
+      <span class="lg"><span class="sw" style="background:#1a7f37"></span>then（断言）</span>
+      <span class="lg"><span class="sw" style="background:#cf222e"></span>断点 / 异常</span>
+    </div>
+    <ul>
+      <li>断言表里"期望"= 测试写死的值，"实际"= ch02-1-2 / ch02-1-3 实测记载的当前行为——<b>特征测试就是把现状当期望钉住</b>；</li>
+      <li>变体页（b2b）的「🔀 diff 对比卡」出现在差异起作用的那一步；异常卡片给出消息原文与迷你调用栈。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>为什么每页都从"虚构的 CSV 文件"开始？</h3>
+    <ul>
+      <li>5 个测试实际都用 <code>new StringReader("…")</code> 内联字符串喂数据，仓库里没有 .csv 文件；</li>
+      <li>解析入口只认 Reader：<code>format.parse(Reader)</code>（CSVFormat.java:2207）与 <code>CSVParser.parse(Path,…)</code>（:407）汇合到同一构造器（:524），表头在构造期定案（:528）；</li>
+      <li>所以"内联字符串"与"读文件"解析路径完全相同——每页第 0 步给出等价文件画面，第 1 步把这座桥讲透。b3b 的空文件最直观：<code>new StringReader("")</code> 就是 0 字节文件的字符流。</li>
+    </ul>
+  </div>
+</div>
+
+<h2>④ 5 个测试速查表（对照着看四条边界）</h2>
+<table class="plain">
+  <tr><th>测试</th><th>format 配置</th><th>文件形态（虚构等价文件）</th><th>records</th><th>isConsistent</th><th>get(…) 行为</th><th>headerMap</th></tr>
+  <tr><td><a href="b1-getByNameWithUnknownNameThrowsMappingNotFound.html">B1</a></td><td><code>setHeader()</code> 自动探测 + skip（headerFromFirstRecord）</td><td>1 表头行 + 1 数据行（3 列）</td><td>1 条 <code>["1","USD","100"]</code></td><td>true（3=3）</td><td><code>get("nope")</code> 抛 IAE：<code>Mapping for nope not found, expected one of [id, currency, amount]</code>（:137）</td><td>3 项齐全</td></tr>
+  <tr><td><a href="b2a-headerLongerThanRecordThrowsIndexMessage.html">B2a</a></td><td>手工 <code>setHeader("id","currency","amount")</code></td><td>1 数据行仅 2 值：<code>1,USD</code></td><td>1 条 <code>["1","USD"]</code></td><td><b>false（3≠2）</b></td><td><code>get("amount")</code> 抛 IAE：<code>Index for header 'amount' is 2 but CSVRecord only has 2 values!</code>（:140→:141-144）</td><td>3 项</td></tr>
+  <tr><td><a href="b2b-recordLongerThanHeaderIsInconsistentButReadable.html">B2b</a></td><td>同 B2a</td><td>1 数据行 4 值：<code>1,USD,100,extra</code></td><td>1 条 4 值（<code>size()</code>=4）</td><td><b>false（3≠4）</b></td><td><code>get("amount")</code>="100" 仍可取（:140 正常）</td><td>3 项</td></tr>
+  <tr><td><a href="b3a-headerOnlyFileYieldsNoRecordsButHeaderMap.html">B3a</a></td><td>自动探测（headerFromFirstRecord）</td><td>仅表头行</td><td>0 条</td><td>—（无记录）</td><td><code>getRecords()</code> 空；<code>getHeaderNames()</code>=[id, currency, amount] 保序</td><td>3 项齐全</td></tr>
+  <tr><td><a href="b3b-emptyFileWithAutoDetectedHeaderYieldsEmptyHeaderMap.html">B3b</a></td><td>自动探测（headerFromFirstRecord）</td><td><b>空文件（0 字节）</b></td><td>0 条</td><td>—（无记录）</td><td><code>getHeaderMap()</code> 非 null 且 <code>isEmpty()</code>（:633 建 map、:637 EOF、:682 返回空 Map）</td><td><b>空 Map（非 null，踩坑 P7）</b></td></tr>
+</table>
+<div class="small">阅读线索：B1/B2a 钉住 get(String) 的两段"晚失败"（:137 显性缺名、:139-145 隐性缺列）；B2a/B2b 是同一手工表头下"数据短/长"的对照变体；B3a/B3b 钉住空输入的两个极端形态。</div>
+
+<div class="foot">ch02-1-15 · B 组 5 测试交互图解 · 代码锚：commons-csv 分支 ch02-after（24562da2） · 行号与行为结论全部来自 ch02-1-2-scenarios-for-warming-up.md 与 ch02-1-3-debug-guide.md 的实测记载 · 测试代码逐字取自 HeadersCharacterizationTest.java，未做任何改动</div>
+</body>
+</html>

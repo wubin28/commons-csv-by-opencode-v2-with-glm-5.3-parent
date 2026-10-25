@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C 组 · 表头校验的两个时机 × 三种模式 —— 5 个特征测试的交互式图解</title>
+<style>
+:root{--bg:#fff;--panel:#f6f8fa;--bd:#d0d7de;--tx:#1f2328;--dim:#57606a;--file:#8250df;--given:#0969da;--when:#9a6700;--then:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:15px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--tx);background:var(--bg);padding:28px 40px;max-width:1180px;margin:0 auto}
+h1{font-size:24px;margin-bottom:6px}
+.sub{color:var(--dim);font-size:13px;margin-bottom:22px}
+h2{font-size:17px;margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+h3{font-size:14px;margin:14px 0 6px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.tcard{display:block;text-decoration:none;color:var(--tx);border:1px solid var(--bd);border-radius:10px;background:var(--panel);padding:12px 16px;transition:border-color .15s}
+.tcard:hover{border-color:var(--given)}
+.tcard .tc-top{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.tbadge{color:#fff;border-radius:6px;padding:1px 8px;font-size:13px;font-weight:700}
+.tname{font:12.5px Menlo,Consolas,monospace;color:var(--given)}
+.tone{font-size:13px}
+.tmeta{font-size:12px;color:var(--dim);margin-top:6px}
+.tmeta .v{color:var(--when)}
+.star{color:var(--when);font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;margin:8px 0 2px}
+.lg{display:flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.12)}
+/* 总览图 */
+.map{border:1px solid var(--bd);border-radius:10px;background:var(--panel);padding:18px;margin-top:8px;font-size:13px}
+.map-row{display:flex;gap:10px;align-items:stretch}
+.map-col{flex:1;display:flex;flex-direction:column;gap:8px}
+.mbox{border:1px solid var(--bd);border-radius:8px;background:#fff;padding:8px 12px}
+.mbox b{display:block;font-size:13px}
+.mbox .mfile{font:12px Menlo,Consolas,monospace;color:#8250df;background:#f0eaff;border-radius:4px;padding:0 6px;display:inline-block;margin:2px 0}
+.mbox .mdesc{font-size:12px;color:var(--dim)}
+.mbox .mlink{font-size:12px}
+.mbox .mlink a{color:var(--given);text-decoration:none}
+.mbox .mlink a:hover{text-decoration:underline}
+.src-build{border-top:3px solid var(--given)}
+.src-modes{border-top:3px solid #8c959f}
+.src-parse{border-top:3px solid var(--file)}
+.merge{border:2px solid var(--red);background:#fff8c5}
+.arrowbar{display:flex;gap:10px;margin:4px 0}
+.arrow{flex:1;text-align:center;color:var(--dim);font-size:18px}
+.small{font-size:12px;color:var(--dim)}
+.mode-t{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px;background:#fff}
+.mode-t th,.mode-t td{border:1px solid var(--bd);padding:3px 6px;text-align:left;vertical-align:top}
+.mode-t th{background:var(--panel)}
+code{font:12.5px Menlo,Consolas,monospace;background:var(--panel);border:1px solid var(--bd);border-radius:4px;padding:0 5px}
+.guide{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.gbox{border:1px solid var(--bd);border-radius:8px;background:#fff;padding:10px 14px}
+.gbox h3{margin-top:0}
+.gbox ul{padding-left:18px;font-size:13px}
+.foot{margin-top:30px;padding-top:8px;border-top:1px solid var(--bd);font-size:12px;color:var(--dim)}
+table.plain{border-collapse:collapse;font-size:12.5px;width:100%}
+table.plain th,table.plain td{border:1px solid var(--bd);padding:4px 8px;text-align:left;vertical-align:top}
+table.plain th{background:var(--panel)}
+</style>
+</head>
+<body>
+<h1>C 组 · 重复列名 / 空列名的容错（DuplicateHeaderMode、allowMissingColumnNames）</h1>
+<div class="sub">HeadersCharacterizationTest · <code>DuplicateAndBlankHeaders</code> 嵌套类 5 个特征测试的交互式图解 · 浅色主题 · 主题维度：<b>表头校验的两个时机（build / parse）× 三种模式（ALLOW_ALL / ALLOW_EMPTY / DISALLOW）</b></div>
+
+<h2>① 先看总地图：表头校验的两个时机 × 三种模式</h2>
+<div class="map">
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox src-build"><b>左链 · build 期（手工表头）—— C1a</b>
+        <div class="mdesc"><code>builder.get()</code>（CSVFormat.java:327-328）→ <code>new CSVFormat(this)</code>（:1653）→ 尾句 <code>validate()</code>（:1676）→ header 段（:2790-2804：:2791 进入条件、:2797 <code>dupCheckSet.add</code> 判重、:2799 抛错）</div>
+        <div class="mfile">setHeader("id","currency","id") + DISALLOW：get() 本身抛 IAE</div>
+        <div class="mdesc">校验对象只有 builder 里手工配置的表头数组；文件此时还没读</div>
+        <div class="mlink">→ <a href="c1a-duplicateManualHeaderWithDisallowThrowsAtFormatBuild.html">C1a · 手工表头重复 + DISALLOW：builder.get() 时抛（build 期）</a></div>
+      </div>
+    </div>
+    <div class="map-col">
+      <div class="mbox src-modes"><b>中栏 · 三种模式放行矩阵</b>
+        <div class="mdesc"><code>DuplicateHeaderMode</code> 枚举（DuplicateHeaderMode.java:28-44，since 1.10.0）：三值见下表。<b>默认值 ALLOW_ALL</b>（Builder.create()，CSVFormat.java:221）——默认不检查重复表头（ch02-1-2 末注），这是 C2 通过、C 组必须显式设 DISALLOW 的原因。</div>
+        <table class="mode-t">
+          <tr><th>模式</th><th>实名重复</th><th>空名重复</th><th>本组证据</th></tr>
+          <tr><td><code>ALLOW_ALL</code>（默认）</td><td>放行（后列覆盖，:672）</td><td>放行</td><td><a href="c2-duplicateNameAllowedByDefaultResolvesToLastIndex.html">C2</a> 正常解析，id→2；<a href="c3a-blankHeaderNameIsMappedWhenMissingColumnNamesAllowed.html">C3a</a> 空名是 key</td></tr>
+          <tr><td><code>ALLOW_EMPTY</code></td><td>抛（build：CSVFormat.java:2797-2802，R-C5 仅记录）</td><td>放行（:665 豁免）</td><td>本组未测（R-C5，源码可证）</td></tr>
+          <tr><td><code>DISALLOW</code></td><td>抛（build：<a href="c1a-duplicateManualHeaderWithDisallowThrowsAtFormatBuild.html">C1a</a> / parse：<a href="c1b-duplicateFileHeaderWithDisallowThrowsAtParserCreation.html">C1b</a>）</td><td>抛（parse：<a href="c3b-duplicateBlankHeadersWithDisallowThrowsAtParserCreation.html">C3b</a>，observedMissing 判定）</td><td>C1a / C1b / C3b</td></tr>
+        </table>
+        <div class="mdesc">注意：校验发生在哪条链（build / parse）取决于<b>表头来源</b>（手工配置 / 文件自动探测），与模式无关；模式只决定「拦不拦」。</div>
+      </div>
+    </div>
+    <div class="map-col">
+      <div class="mbox src-parse"><b>右链 · parse 期（文件表头）—— C1b / C3b</b>
+        <div class="mdesc"><code>format.parse(reader)</code>（CSVFormat.java:2207）→ CSVParser 私有构造器（:524）→ <code>:528 createHeaders()</code> → :637 构造期吃首行 → 校验循环 :655-678（:657/:658 空名、:661/:665-668 重复、:670 observedMissing、:672 put）</div>
+        <div class="mfile">c1b.csv：id,currency,id + 1 数据行 → parse() 调用本身抛 IAE</div>
+        <div class="mfile">c3b.csv：currency,, + 1 数据行 → 两个空名也算重复，抛 IAE</div>
+        <div class="mlink">→ <a href="c1b-duplicateFileHeaderWithDisallowThrowsAtParserCreation.html">C1b ★ · 文件表头重复 + DISALLOW：format.parse() 调用本身抛</a><br>
+        → <a href="c3b-duplicateBlankHeadersWithDisallowThrowsAtParserCreation.html">C3b · 两个空列名也算重复（c3a 的 DISALLOW 对照）</a></div>
+      </div>
+    </div>
+  </div>
+  <div class="arrowbar"><div class="arrow">↓</div><div class="arrow">（模式决定拦不拦）</div><div class="arrow">↓</div></div>
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox merge"><b>★ C1b：parse() 调用本身抛错、数据行从未被读——「读第一条记录之前报错」的现成先例</b>
+        <div class="mdesc">异常从 <code>format.parse(...)</code> 抛出（构造器 :528 → createHeaders() :665-668），发生在任何数据记录被读取之前——文件第 2 行（1,USD,2）从未被读、records 恒空。这正是 <code>setRequiredHeaders</code> 想要的时机：<b>照此时机做即可</b>（ch02-1-3 §3 候选②：插在 createHeaders() 的 :682 return 之前）。</div>
+        <div class="mlink">→ <a href="c1b-duplicateFileHeaderWithDisallowThrowsAtParserCreation.html">进入 C1b 交互页，看「数据行永远不高亮」的可视化</a></div>
+      </div>
+    </div>
+  </div>
+  <div class="arrowbar"><div class="arrow">↓</div></div>
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox"><b>下游：放行时会发生什么——C2 的有损映射与 C3a 的空名 key</b>
+        <div class="mdesc">默认放行不等于「当作没发生」：C2 里 <code>headerMap</code> 被 <code>:672</code> 二次 put 覆盖（id→0 变 id→2），按名取值命中<b>最后一个</b>同名列（CSVRecord.java:108 Javadoc："only the last occurrence is returned"）；C3a 里空串被 put 成合法 key（""→1），<code>get("")</code> 完全可用。放行模式下 <b>keySet 与物理列可以不一致</b>——这是将来 required 校验必须意识到的形态。</div>
+        <div class="mlink">→ <a href="c2-duplicateNameAllowedByDefaultResolvesToLastIndex.html">C2 · 默认放行 + 后列覆盖</a> ｜ <a href="c3a-blankHeaderNameIsMappedWhenMissingColumnNamesAllowed.html">C3a · 空名 "" 也是 key</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="small">一句话版本：<b>表头校验已存在两个时机——手工表头在 build 时、文件表头在 parse 时；后者天然早于任何数据记录，<code>setRequiredHeaders</code> 照此时机做即可</b>（ch02-1-3 §1/§3）。</div>
+
+<h2>② 五张交互图（按推荐阅读顺序）</h2>
+<div class="cards">
+  <a class="tcard" href="c1a-duplicateManualHeaderWithDisallowThrowsAtFormatBuild.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">C1a</span><span class="tname">duplicateManualHeaderWithDisallowThrowsAtFormatBuild</span></div>
+    <div class="tone">手工表头重复 + DISALLOW：<code>builder.get()</code> 一行内抛（<b>build 期</b>），消息含 duplicate name 与 id。全组唯一没有输入文件、没有解析的页面。</div>
+    <div class="tmeta">8 步 · 无输入文件 · 断言 3 条 · 异常卡片（时机标注：build 期）</div>
+  </a>
+  <a class="tcard" href="c1b-duplicateFileHeaderWithDisallowThrowsAtParserCreation.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">C1b</span><span class="tname">duplicateFileHeaderWithDisallowThrowsAtParserCreation</span> <span class="star">★ 本热身最关键</span></div>
+    <div class="tone">文件表头重复 + DISALLOW：<code>format.parse()</code> 调用本身抛（<b>parse 期</b>）——数据行 1,USD,2 从未被读。「读第一条记录之前报错」的现成先例。</div>
+    <div class="tmeta">9 步 · 文件 2×3 · 断言 2 条 · 异常卡片（时机标注：parse 期）· 数据行永不高亮</div>
+  </a>
+  <a class="tcard" href="c2-duplicateNameAllowedByDefaultResolvesToLastIndex.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">C2</span><span class="tname">duplicateNameAllowedByDefaultResolvesToLastIndex</span></div>
+    <div class="tone">默认 ALLOW_ALL 放行重复列名；<code>headerMap</code> 的 id→0 被 id→2 <b>覆盖</b>（:672 二次 put），<code>get("id")</code> 命中最后一列返回 "2"。与 Javadoc（CSVRecord.java:108）一致。</div>
+    <div class="tmeta">11 步 · 文件 2×3（与 c1b 字节级相同） · 断言 3 条 · 含第二次 parse 复查</div>
+  </a>
+  <a class="tcard" href="c3a-blankHeaderNameIsMappedWhenMissingColumnNamesAllowed.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">C3a</span><span class="tname">blankHeaderNameIsMappedWhenMissingColumnNamesAllowed</span></div>
+    <div class="tone">表头 <code>currency,,amount</code> + allowMissingColumnNames：空列名被 put 成合法 key（""→1），<code>get("")</code> 返回 "100"——空串就是普通 key。</div>
+    <div class="tmeta">11 步 · 文件 2 行（表头含 1 个空名） · 断言 3 条 · 含第二次 parse 复查</div>
+  </a>
+  <a class="tcard" href="c3b-duplicateBlankHeadersWithDisallowThrowsAtParserCreation.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">C3b</span><span class="tname">duplicateBlankHeadersWithDisallowThrowsAtParserCreation</span> <span class="v">⟵ c3a 变体</span></div>
+    <div class="tone">表头 <code>currency,,</code>（两个空名）+ DISALLOW：parse 时抛——空名重复的判定靠 <code>:670 observedMissing</code> 标志位，不是 map 查询。</div>
+    <div class="tmeta">9 步 · 文件 2 行（表头含 2 个空名） · 断言 2 条 · 含 diff 对比卡</div>
+  </a>
+</div>
+
+<h2>③ 阅读指南：怎么用这些交互页</h2>
+<div class="guide">
+  <div class="gbox">
+    <h3>步进操作</h3>
+    <ul>
+      <li>底部按钮「◀ 上一步 / 下一步 ▶」，或键盘 <code>←</code> / <code>→</code> / 空格；</li>
+      <li>顶部一排圆点是全部步骤（颜色=阶段），点击可跳；</li>
+      <li>点击<b>测试代码的任意一行</b>，直接跳到覆盖它的那一步；</li>
+      <li>「自动播放」开关：约 6 秒/步，播完自动停；</li>
+      <li>URL 支持 <code>?step=N</code> 直达任意步（0 起），例如 <code>c1b-….html?step=5</code>。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>画面分区</h3>
+    <ul>
+      <li><b>左侧·测试代码</b>：全部行从第 0 步就可见（先有地图），当前步覆盖的行高亮，行号 = 测试文件内真实行号；</li>
+      <li><b>左侧下方·源码剧场</b>：随步骤展开的源码摘录卡片（真实源码 + 行号），<span style="color:#cf222e">●</span> 红点 = ch02-1-3 建议断点，灰色行 = 本场景走不到的分支；</li>
+      <li><b>右侧·四个面板</b>：文件字节视图（紫色高亮当前被消费的行，<code>\r\n</code> 显式可见）→ 解析器状态（format 配置表 / headerRecord / headerMap chips / records）→ 变量监视盒 → 断言·异常·差异。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>本组的核心维度：时机</h3>
+    <ul>
+      <li>每张异常卡片都带 <b>⏱ 时机标注</b>（build 期 / parse 期）——这是 C 组最重要的对照维度（ch02-1-2 踩坑 P5：重复表头校验有两个时机，最初只想到一个）；</li>
+      <li>C1a 与 C1b 是同一种错误的两个时机：手工表头在 build 期炸、文件表头在 parse 期炸——两页的异常卡片互相引用；</li>
+      <li>C1b / C3b 页面里<b>数据行永远不高亮、永不带 ✓、records 恒空</b>——「异常早于任何数据记录」的直接可视化；</li>
+      <li>c3b 页顶有「⟵ c3a 的 DISALLOW 对照」徽标，format 构建步浮出 🔀 diff 对比卡。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>颜色图例与断言口径</h3>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="background:#8250df"></span>文件 / 等价桥</span>
+      <span class="lg"><span class="sw" style="background:#0969da"></span>given（准备）</span>
+      <span class="lg"><span class="sw" style="background:#9a6700"></span>when（被测行为）</span>
+      <span class="lg"><span class="sw" style="background:#1a7f37"></span>then（断言）</span>
+      <span class="lg"><span class="sw" style="background:#cf222e"></span>断点 / 异常</span>
+    </div>
+    <ul>
+      <li>断言表里"期望"= 测试写死的值，"实际"= ch02-1-2 / ch02-1-3 实测记载的当前行为——<b>特征测试就是把现状当期望钉住</b>；</li>
+      <li>断言口径（ch02-1-2 末注 Q5）：异常<b>类型精确断言</b>，消息只断关键片段（如 duplicate name），不做全文匹配；</li>
+      <li>C1a 是全组唯一没有输入文件的页面：build 期即抛，尚未进入解析——第 0 步如实展示"无输入文件"。</li>
+    </ul>
+  </div>
+</div>
+
+<h2>④ 5 个测试 × 时机 × 模式（速查表）</h2>
+<table class="plain">
+  <tr><th>测试</th><th>format 配置</th><th>文件形态</th><th>结果</th><th>抛错时机</th><th>数据行被读了吗</th></tr>
+  <tr><td><a href="c1a-duplicateManualHeaderWithDisallowThrowsAtFormatBuild.html">C1a</a></td><td><code>setHeader("id","currency","id")</code> + <code>DISALLOW</code></td><td><b>无输入（不 parse）</b></td><td><code>builder.get()</code> 抛 IAE：<code>The header contains a duplicate name: "id" in [id, currency, id]. …</code>（<code>CSVFormat.java:2799</code>）</td><td><b>build 期</b>（get() :328 → :1676 validate）</td><td>—（parser 都没建）</td></tr>
+  <tr><td><a href="c1b-duplicateFileHeaderWithDisallowThrowsAtParserCreation.html">C1b</a> ★</td><td><code>setHeader()</code> + skip + <code>DISALLOW</code></td><td><code>id,currency,id</code> + 1 数据行</td><td><code>format.parse()</code> 抛 IAE（含 <code>duplicate name</code>）（<code>CSVParser.java:666-668</code>）</td><td><b>parse 期</b>（构造器内 :528 → :665-668）</td><td><b>从未</b>（<code>1,USD,2</code> 未被读）★</td></tr>
+  <tr><td><a href="c2-duplicateNameAllowedByDefaultResolvesToLastIndex.html">C2</a></td><td><code>setHeader()</code> + skip（默认 <code>ALLOW_ALL</code>）</td><td><code>id,currency,id</code> + 1 数据行</td><td>不抛；<code>headerMap</code>：<code>id→2</code>（:672 二次 put 覆盖 0）；<code>get("id")</code>="2"</td><td>—</td><td>正常读</td></tr>
+  <tr><td><a href="c3a-blankHeaderNameIsMappedWhenMissingColumnNamesAllowed.html">C3a</a></td><td><code>setHeader()</code> + skip + <code>allowMissingColumnNames(true)</code></td><td><code>currency,,amount</code> + 1 数据行</td><td><code>""</code> 成为 key（→1）；<code>get("")</code>="100"</td><td>—</td><td>正常读</td></tr>
+  <tr><td><a href="c3b-duplicateBlankHeadersWithDisallowThrowsAtParserCreation.html">C3b</a></td><td>C3a 配置 + <code>DISALLOW</code></td><td><code>currency,,</code> + 1 数据行</td><td>parse 时抛 IAE（含 <code>duplicate</code>）——空名重复由 <code>observedMissing</code>（:670）判定，非 map 查询</td><td><b>parse 期</b></td><td>从未</td></tr>
+</table>
+<div class="small">行号与行为结论全部来自 ch02-1-2 / ch02-1-3 的实测记载；R-C4（allow=false + 空名）与 R-C5（ALLOW_EMPTY + 实名重复）仅记录未测，行为标注见 ch02-1-2 第一部分 C 组表格。</div>
+
+<div class="foot">ch02-1-16 · C 组 · ch02-after (24562da2) · 场景：ch02-1-2 §第一部分 C 组 · 断点：ch02-1-3 §2 C 组 · 行号与行为结论全部来自 ch02-1-2 / ch02-1-3 的实测记载 · 测试代码逐字取自 HeadersCharacterizationTest.java，未做任何改动</div>
+</body>
+</html>

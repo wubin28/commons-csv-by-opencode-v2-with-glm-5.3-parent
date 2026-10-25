@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D2 · 手工表头绑定位置：文件首行文本不参与映射</title>
+<style>
+:root{--bg:#fff;--panel:#f6f8fa;--bd:#d0d7de;--tx:#1f2328;--dim:#57606a;--file:#8250df;--given:#0969da;--when:#9a6700;--then:#1a7f37;--red:#cf222e;--hl:#fff8c5;--errbg:#ffebe9;--kw:#0000ff;--str:#a31515;--com:#008000;--num:#098658;--typ:#267f99}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:14px/1.6 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--tx);background:var(--bg);display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--bd);background:var(--panel);flex:0 0 auto;flex-wrap:wrap}
+.badge{font-weight:700;color:#fff;background:var(--file);border-radius:6px;padding:1px 8px;font-size:13px}
+.method{font-family:Menlo,Consolas,monospace;font-size:13px}
+.stage-track{display:flex;gap:4px;align-items:center;flex:1;justify-content:center;flex-wrap:wrap;min-width:200px}
+.dot{width:10px;height:10px;border-radius:50%;cursor:pointer;border:1px solid rgba(0,0,0,.18)}
+.dot.cur{outline:2px solid var(--tx);outline-offset:1px;transform:scale(1.2)}
+.stepno{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+.pagenav{display:flex;gap:6px;font-size:12px}
+.pagenav a{color:var(--given);text-decoration:none;border:1px solid var(--bd);border-radius:6px;padding:1px 8px;background:#fff;white-space:nowrap}
+.pagenav a:hover{border-color:var(--given)}
+.main{flex:1 1 auto;display:flex;min-height:0}
+.left{flex:0 0 55%;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--bd)}
+.panehead{padding:6px 14px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--bd);background:var(--panel)}
+.codewrap{flex:1;overflow:auto;padding:8px 0}
+pre.code{font:12.5px/1.55 Menlo,Consolas,"SF Mono",monospace}
+.cl{display:block;white-space:pre;padding:0 12px 0 0;border-left:3px solid transparent;cursor:pointer}
+.cl .ln{display:inline-block;width:36px;text-align:right;padding-right:10px;color:#8c959f;user-select:none}
+.cl:hover{background:#eaeef2}
+.cl.on{background:var(--hl);box-shadow:inset 3px 0 0 var(--pc,#0969da)}
+.cl.err{background:var(--errbg);box-shadow:inset 3px 0 0 var(--red)}
+.cl.dim2{opacity:.55}
+.k{color:var(--kw)}.s{color:var(--str)}.c{color:var(--com)}.n{color:var(--num)}.ty{color:var(--typ)}.an{color:#6e7781}
+.theater{flex:0 0 auto;max-height:46%;overflow:auto;border-top:2px solid var(--bd);background:#fff}
+.card{display:none;padding:10px 14px;border-bottom:1px dashed var(--bd)}
+.card.show{display:block}
+.card-h{font-size:12px;color:var(--dim);margin-bottom:6px}
+.card-h b{color:var(--tx)}
+.src{font:11.5px/1.5 Menlo,Consolas,monospace}
+.sl{display:block;white-space:pre}
+.sl .ln{display:inline-block;width:42px;text-align:right;padding-right:10px;color:#8c959f}
+.sl.hl{background:var(--hl);box-shadow:inset 3px 0 0 var(--when)}
+.bp{color:var(--red);font-weight:700}
+.card-f{font-size:11px;color:var(--dim);margin-top:6px}
+.right{flex:1;display:flex;flex-direction:column;min-width:0;overflow:auto}
+.panel{margin:10px;border:1px solid var(--bd);border-radius:8px;background:var(--panel)}
+.phead{font-size:12px;font-weight:600;padding:4px 12px;border-bottom:1px solid var(--bd);color:#fff;background:var(--pc,#57606a);border-radius:7px 7px 0 0}
+.pbody{padding:8px 12px}
+.bytes .bline{font:12.5px/1.8 Menlo,Consolas,monospace;white-space:pre;padding:0 8px;border-radius:4px}
+.bytes .bline.cur{background:#f0eaff;box-shadow:inset 3px 0 0 var(--file)}
+.bytes .bline.done{opacity:.5}
+.bytes .bline.done::after{content:" ✓已消费";color:var(--file);font-size:11px}
+.bidx{display:inline-block;width:26px;color:#8c959f}
+.crlf{color:var(--file);background:#f0eaff;border-radius:3px;padding:0 2px;font-size:11px}
+.fmeta{font-size:12px;color:var(--dim);margin-top:6px}
+.sech{font-size:11px;color:var(--dim);margin:6px 0 2px}
+.mono{font:12px Menlo,Consolas,monospace}
+.dim{color:var(--dim)}
+.kv{width:100%;border-collapse:collapse;font:12px Menlo,Consolas,monospace}
+.kv td{border-top:1px solid #eaeef2;padding:2px 4px;vertical-align:top}
+.kv td:first-child{color:var(--dim);width:42%}
+.hmwrap{display:flex;flex-wrap:wrap;gap:6px}
+.hmc{font:12px Menlo,Consolas,monospace;background:#ddf4ff;color:#0969da;border:1px solid #b6e3ff;border-radius:6px;padding:1px 8px}
+.rec{font:12px Menlo,Consolas,monospace;background:#dafbe1;border:1px solid #a6e2b5;border-radius:6px;padding:1px 8px;margin:2px 4px 2px 0;display:inline-block}
+.note{font-size:12px;color:var(--dim);margin-top:6px;border-top:1px dashed var(--bd);padding-top:4px}
+.wr{font:12px Menlo,Consolas,monospace;padding:1px 4px}
+.wn{color:var(--dim)}.wv{color:var(--tx)}
+.empty{color:#8c959f;font-size:12px}
+.astab{width:100%;border-collapse:collapse;font-size:12px}
+.astab th{text-align:left;color:var(--dim);font-weight:600;border-bottom:1px solid var(--bd);padding:2px 6px}
+.astab td{border-top:1px solid #eaeef2;padding:3px 6px;vertical-align:top}
+.astab td.mono,.astab .mono{font:11.5px Menlo,Consolas,monospace}
+.astab td.ok{color:var(--then);font-weight:700}
+.exccard{border:1px solid rgba(207,34,46,.4);border-radius:8px;background:rgba(255,235,233,.5);padding:8px 12px;margin-top:8px}
+.ec-h{font-size:12px;font-weight:600;color:var(--red)}
+.ec-type{font:13px Menlo,Consolas,monospace;font-weight:700;margin:4px 0}
+.ec-msg{font:11.5px/1.5 Menlo,Consolas,monospace;background:#fff;border:1px dashed #ff8182;border-radius:6px;padding:6px 8px;white-space:pre-wrap}
+.ec-loc{font-size:12px;margin-top:4px}
+.ec-stack{font:11.5px Menlo,Consolas,monospace;color:var(--dim);margin-top:4px;border-left:2px solid var(--bd);padding-left:8px}
+.ec-note{font-size:11.5px;color:var(--dim);margin-top:4px}
+.narr{flex:0 0 auto;border-top:1px solid var(--bd);background:var(--panel);padding:10px 16px;display:flex;gap:16px;align-items:center}
+.narrbox{flex:1;min-width:0}
+.ph{color:#fff;font-size:11px;border-radius:4px;padding:0 6px;margin-right:6px}
+#stepTitle{font-weight:600;font-size:13px}
+#narrText{font-size:13px;margin-top:3px}
+.ctrl{display:flex;gap:8px;align-items:center;flex:0 0 auto}
+.ctrl button{font-size:13px;padding:5px 14px;border-radius:6px;border:1px solid var(--bd);background:#fff;cursor:pointer}
+.ctrl button:hover:not(:disabled){border-color:var(--given);color:var(--given)}
+.ctrl button:disabled{opacity:.45;cursor:default}
+.auto{font-size:12px;color:var(--dim);display:flex;gap:4px;align-items:center}
+.foot{flex:0 0 auto;font-size:11px;color:var(--dim);border-top:1px solid var(--bd);padding:3px 16px;background:var(--panel)}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <span class="badge">D2</span>
+  <span class="method">manualHeaderBindsPositionsNotFileHeaderText</span>
+  <div class="stage-track" id="stageTrack"></div>
+  <span class="stepno" id="stepNo">1 / 12</span>
+  <nav class="pagenav"><a href="d1-headerNameWithSurroundingSpacesNeedsExactMatch.html">← D1</a><a href="index.html">⌂ index</a></nav>
+</header>
+<main class="main">
+  <section class="left">
+    <div class="panehead">测试代码 · HeadersCharacterizationTest.java（行号为该文件内行号；点击行可跳到覆盖它的步骤）</div>
+    <div class="codewrap">
+      <pre class="code" id="code"><span class="cl dim2">    <span class="k">private static</span> <span class="ty">List</span>&lt;<span class="ty">CSVRecord</span>&gt; parseRecords(<span class="k">final</span> <span class="ty">CSVFormat</span> format, <span class="k">final</span> <span class="ty">String</span> csv) <span class="k">throws</span> <span class="ty">IOException</span> {</span>
+<span class="cl dim2">        <span class="k">try</span> (<span class="ty">CSVParser</span> parser = format.parse(<span class="k">new</span> <span class="ty">StringReader</span>(csv))) {</span>
+<span class="cl dim2">            <span class="k">return</span> parser.getRecords();</span>
+<span class="cl dim2">        }</span>
+<span class="cl dim2">    }</span>
+<span class="cl dim2"></span>
+<span class="cl" data-l="269">        <span class="c">/** D2：手工表头绑定的是"位置"，与文件首行写了什么无关。 */</span></span>
+<span class="cl" data-l="270">        <span class="an">@Test</span></span>
+<span class="cl" data-l="271">        <span class="k">void</span> manualHeaderBindsPositionsNotFileHeaderText() <span class="k">throws</span> <span class="ty">IOException</span> {</span>
+<span class="cl" data-l="272">            <span class="k">final</span> <span class="ty">CSVFormat</span> format = <span class="ty">CSVFormat</span>.DEFAULT.builder().setHeader(<span class="s">"colX"</span>, <span class="s">"currency"</span>, <span class="s">"amount"</span>)</span>
+<span class="cl" data-l="273">                    .setSkipHeaderRecord(<span class="k">true</span>).get();</span>
+<span class="cl" data-l="274">            <span class="k">final</span> <span class="ty">List</span>&lt;<span class="ty">CSVRecord</span>&gt; records = parseRecords(format, <span class="s">"id,currency,amount\r\n1,USD,100\r\n"</span>);</span>
+<span class="cl" data-l="275">            assertEquals(<span class="s">"1"</span>, records.get(<span class="n">0</span>).get(<span class="s">"colX"</span>));</span>
+<span class="cl" data-l="276">            assertEquals(<span class="s">"USD"</span>, records.get(<span class="n">0</span>).get(<span class="s">"currency"</span>));</span>
+<span class="cl" data-l="277">            <span class="k">try</span> (<span class="ty">CSVParser</span> parser = format.parse(<span class="k">new</span> <span class="ty">StringReader</span>(<span class="s">"id,currency,amount\r\n1,USD,100\r\n"</span>))) {</span>
+<span class="cl" data-l="278">                assertEquals(<span class="ty">Integer</span>.valueOf(<span class="n">0</span>), parser.getHeaderMap().get(<span class="s">"colX"</span>));</span>
+<span class="cl" data-l="279">            }</span>
+<span class="cl" data-l="280">        }</span></pre>
+    </div>
+    <div class="theater" id="theater">
+      <div class="card" id="card-bridge">
+        <div class="card-h">🌉 等价桥 · 为什么测试可以不用真文件？—— <b>CSVParser 只认 Reader，文件与字符串在此汇合</b></div>
+        <div class="src">
+<span class="sl"><span class="ln">2207</span><span class="bp">●</span>   <span class="k">public</span> <span class="ty">CSVParser</span> parse(<span class="k">final</span> <span class="ty">Reader</span> reader) <span class="k">throws</span> <span class="ty">IOException</span> {   <span class="c">// ← 测试走的入口：CSVFormat.java:2207</span></span>
+<span class="sl"><span class="ln">2208</span>     <span class="k">return</span> <span class="ty">CSVParser</span>.builder().setReader(reader).setFormat(<span class="k">this</span>).get();</span>
+<span class="sl"><span class="ln">2209</span> }</span>
+<span class="sl"></span>
+<span class="sl"><span class="ln">407</span> <span class="k">public static</span> <span class="ty">CSVParser</span> parse(<span class="k">final</span> <span class="ty">Path</span> path, <span class="k">final</span> <span class="ty">Charset</span> charset, <span class="k">final</span> <span class="ty">CSVFormat</span> format) <span class="k">throws</span> <span class="ty">IOException</span> {   <span class="c">// ← 真实读文件的入口：CSVParser.java:407</span></span>
+<span class="sl"><span class="ln">408</span>     <span class="ty">Objects</span>.requireNonNull(path, <span class="s">"path"</span>);</span>
+<span class="sl"><span class="ln">409</span>     <span class="k">return</span> parse(() -&gt; <span class="ty">Files</span>.newInputStream(path), charset, format);</span>
+<span class="sl"><span class="ln">410</span> }</span>
+<span class="sl"></span>
+<span class="sl hl"><span class="ln">524</span><span class="bp">●</span> <span class="k">private</span> <span class="ty">CSVParser</span>(<span class="k">final</span> <span class="ty">Builder</span> builder) <span class="k">throws</span> <span class="ty">IOException</span> {   <span class="c">// ← 两条路在此汇合：同一私有构造器</span></span>
+<span class="sl"><span class="ln">525</span>     <span class="k">this</span>.format = (builder.format != <span class="k">null</span> ? builder.format : <span class="ty">CSVFormat</span>.DEFAULT).copy();</span>
+<span class="sl"><span class="ln">526</span>     <span class="k">this</span>.lexer = <span class="k">new</span> <span class="ty">Lexer</span>(format, <span class="k">new</span> <span class="ty">ExtendedBufferedReader</span>(builder.getReader(), ...));</span>
+<span class="sl"><span class="ln">527</span>     <span class="k">this</span>.csvRecordIterator = <span class="k">new</span> <span class="ty">CSVRecordIterator</span>();</span>
+<span class="sl hl"><span class="ln">528</span><span class="bp">●</span> <span class="k">this</span>.headers = createHeaders();   <span class="c">// ← 表头世界在构造期定案</span></span>
+        </div>
+        <div class="card-f">`new StringReader("id,currency,amount\r\n...")` 吐出的字符流，与把 d2.csv 读成字符流完全相同。断点对照：ch02-1-3 §1。</div>
+      </div>
+      <div class="card" id="card-c643">
+        <div class="card-h">🔬 源码剧场 · <b>CSVParser.createHeaders()</b>（CSVParser.java:642-650 摘录）—— skip 分支：消费并丢弃文件自己的表头行</div>
+        <div class="src">
+<span class="sl"><span class="ln">642</span> } <span class="k">else</span> {</span>
+<span class="sl hl"><span class="ln">643</span><span class="bp">●</span> <span class="k">if</span> (format.getSkipHeaderRecord()) {</span>
+<span class="sl hl"><span class="ln">644</span><span class="bp">●</span> <span class="k">final</span> <span class="ty">CSVRecord</span> nextRecord = nextRecord();   <span class="c">// ← 消费并丢弃文件自己的表头行</span></span>
+<span class="sl"><span class="ln">645</span>     <span class="k">if</span> (nextRecord != <span class="k">null</span>) {</span>
+<span class="sl"><span class="ln">646</span>         headerComment = nextRecord.getComment();   <span class="c">// ← 只留 comment，记录本体被丢弃</span></span>
+<span class="sl"><span class="ln">647</span>     }</span>
+<span class="sl"><span class="ln">648</span> }</span>
+<span class="sl hl"><span class="ln">649</span><span class="bp">●</span> headerRecord = formatHeader;</span>
+<span class="sl"><span class="ln">650</span> }</span>
+        </div>
+        <div class="card-f">手工表头（非空数组）时 :643 可达——skip=true 使 :644 读掉文件首行 id,currency,amount 并丢弃；:649 headerRecord = 配置数组（["colX",...]）——文件首行文本从未参与映射。断点对照：ch02-1-3 §D2。</div>
+      </div>
+      <div class="card" id="card-c672">
+        <div class="card-h">🔬 源码剧场 · <b>createHeaders() 映射循环</b>（CSVParser.java:655-678 摘录）—— 键全部来自配置数组</div>
+        <div class="src">
+<span class="sl"><span class="ln">655</span> <span class="k">for</span> (<span class="k">int</span> i = <span class="n">0</span>; i &lt; headerRecord.length; i++) {</span>
+<span class="sl"><span class="ln">656</span>     <span class="k">final</span> <span class="ty">String</span> header = headerRecord[i];</span>
+<span class="sl"><span class="ln">…</span></span>
+<span class="sl"><span class="ln">670</span>     observedMissing |= blankHeader;</span>
+<span class="sl"><span class="ln">671</span>     <span class="k">if</span> (header != <span class="k">null</span>) {</span>
+<span class="sl hl"><span class="ln">672</span><span class="bp">●</span>     headerMap.put(header, <span class="ty">Integer</span>.valueOf(i)); <span class="c">// Explicit boxing is intentional</span></span>
+<span class="sl"><span class="ln">673</span>         ...</span>
+<span class="sl"><span class="ln">677</span>     }</span>
+<span class="sl"><span class="ln">678</span> }</span>
+        </div>
+        <div class="card-f">headerRecord = formatHeader（:649）→ 映射键全部来自配置：colX→0、currency→1、amount→2——文件首行写的 id 一次也没出现。断点对照：ch02-1-3 §D2。</div>
+      </div>
+      <div class="card" id="card-gets">
+        <div class="card-h">🔬 源码剧场 · <b>CSVRecord.get(String)</b>（CSVRecord.java:130-146 摘录）—— 按名取值：查映射 → 取下标</div>
+        <div class="src">
+<span class="sl"><span class="ln">130</span> <span class="k">public</span> <span class="ty">String</span> get(<span class="k">final</span> <span class="ty">String</span> name) {</span>
+<span class="sl"><span class="ln">131</span>     <span class="k">final</span> <span class="ty">Map</span>&lt;<span class="ty">String</span>, <span class="ty">Integer</span>&gt; headerMap = getHeaderMapRaw();</span>
+<span class="sl"><span class="ln">132</span>     <span class="k">if</span> (headerMap == <span class="k">null</span>) { ... <span class="k">throw new</span> <span class="ty">IllegalStateException</span>(...); }</span>
+<span class="sl hl"><span class="ln">135</span><span class="bp">●</span> <span class="k">final</span> <span class="ty">Integer</span> index = name == <span class="k">null</span> ? <span class="k">null</span> : headerMap.get(name);</span>
+<span class="sl"><span class="ln">136</span>     <span class="k">if</span> (index == <span class="k">null</span>) { ... <span class="k">throw new</span> <span class="ty">IllegalArgumentException</span>(...); }</span>
+<span class="sl"><span class="k">try</span> {</span>
+<span class="sl hl"><span class="ln">140</span><span class="bp">●</span> <span class="k">return</span> values[index.intValue()]; <span class="c">// Explicit unboxing is intentional</span></span>
+        </div>
+        <div class="card-f">断言 :275 走 get("colX")：:135 查映射得 index=0 → :140 返回 values[0]="1"——"colX" 这个名字文件里从未出现，靠位置 0 取到值。断点对照：ch02-1-3 §D2。</div>
+      </div>
+      <div class="card" id="card-ghm">
+        <div class="card-h">🔬 源码剧场 · <b>CSVParser.getHeaderMap()</b>（CSVParser.java:732-739）—— 返回防御性副本</div>
+        <div class="src">
+<span class="sl"><span class="ln">732</span> <span class="k">public</span> <span class="ty">Map</span>&lt;<span class="ty">String</span>, <span class="ty">Integer</span>&gt; getHeaderMap() {</span>
+<span class="sl"><span class="ln">733</span>     <span class="k">if</span> (headers.headerMap == <span class="k">null</span>) {</span>
+<span class="sl"><span class="ln">734</span>     <span class="k">return</span> <span class="k">null</span>;</span>
+<span class="sl"><span class="ln">735</span> }</span>
+<span class="sl hl"><span class="ln">736</span><span class="bp">●</span> <span class="k">final</span> <span class="ty">Map</span>&lt;<span class="ty">String</span>, <span class="ty">Integer</span>&gt; map = createEmptyHeaderMap();</span>
+<span class="sl hl"><span class="ln">737</span>     map.putAll(headers.headerMap);</span>
+<span class="sl"><span class="ln">738</span>     <span class="k">return</span> map;</span>
+<span class="sl"><span class="ln">739</span> }</span>
+        </div>
+        <div class="card-f">第二个 try 块面对的是这份防御性副本：{colX=0, currency=1, amount=2}——get("colX") 返回 Integer 0。断点对照：ch02-1-3 §D2。</div>
+      </div>
+    </div>
+  </section>
+  <section class="right">
+    <div class="panel" style="--pc:#8250df">
+      <div class="phead">📄 文件字节视图 · d2.csv（虚构等价文件）</div>
+      <div class="pbody bytes" id="bytes">
+        <div class="bline"><span class="bidx">1</span>id,currency,amount<span class="crlf">\r\n</span></div>
+        <div class="bline"><span class="bidx">2</span>1,USD,100<span class="crlf">\r\n</span></div>
+        <div class="fmeta">2 行 × 3 列 · 文件首行写着 id,currency,amount——与 :272 配置的第 1 列名 colX <b>不同名</b> · 每行以 <b>\r\n</b>（CRLF）结尾</div>
+      </div>
+    </div>
+    <div class="panel" style="--pc:#0969da">
+      <div class="phead">🧠 解析器状态</div>
+      <div class="pbody" id="stateBox"><div class="empty">解析尚未开始</div></div>
+    </div>
+    <div class="panel" style="--pc:#57606a">
+      <div class="phead">👁 变量监视盒</div>
+      <div class="pbody" id="watchBox"><div class="empty">—</div></div>
+    </div>
+    <div class="panel" style="--pc:#1a7f37">
+      <div class="phead">🧪 断言 / 异常 / 差异</div>
+      <div class="pbody" id="resultBox"><div class="empty">—</div></div>
+    </div>
+  </section>
+</main>
+<footer class="narr">
+  <div class="narrbox"><div id="stepTitle"></div><div id="narrText"></div></div>
+  <div class="ctrl">
+    <button id="btnPrev">◀ 上一步</button>
+    <button id="btnNext">下一步 ▶</button>
+    <label class="auto"><input type="checkbox" id="autoPlay"> 自动播放</label>
+  </div>
+</footer>
+<div class="foot">ch02-1-17 · D2 · ch02-after (24562da2) · 场景：ch02-1-2 §第一部分 D2 · 断点：ch02-1-3 §2 D2 · 键盘 ←/→/空格 步进</div>
+<script>
+const PH={file:'#8250df',bridge:'#8250df',given:'#0969da',when:'#9a6700',then:'#1a7f37'};
+const PHN={file:'文件',bridge:'桥',given:'given',when:'when',then:'then'};
+const FMT_D2=[['header','["colX","currency","amount"]（手工配置数组）'],['skipHeaderRecord','true（真开关）'],['duplicateHeaderMode','ALLOW_ALL']];
+const HR_D2='["colX","currency","amount"]（= format.getHeader()，全部来自配置）';
+const HM_D2=[['colX',0],['currency',1],['amount',2]];
+const AS_D2=[['assertEquals("1", records.get(0).get("colX"))','"1"','"1"',true]];
+const STEPS=[
+{ph:'file',t:'文件视角：虚构的 d2.csv——文件首行与配置的表头不同名',lines:[269,270,271],card:null,file:{cur:[0,1],done:[]},st:null,
+ watch:[['d2.csv','虚构等价文件（仓库中并不存在）'],['内容','id,currency,amount\r\n1,USD,100\r\n'],['行数×列数','2 × 3（1 表头行 + 1 数据行）'],['伏笔','文件首行的第 1 个名字 id 与 :272 配置的 colX 对不上']],
+ n:'文件首行写着 id,currency,amount，一副"我就是表头"的样子；但测试在 :272 配置的手工表头第一列偏偏叫 colX——文件里根本没有这个名字。D2 要回答：映射到底听谁的？测试并没有读这个文件，而是把完全相同的字节内联进了字符串常量（见 :274）。'},
+{ph:'bridge',t:'等价桥：StringReader 内联字符串 ≡ 读文件',lines:[274],card:'card-bridge',file:{cur:[0,1],done:[]},st:null,
+ watch:[['测试入口','format.parse(new StringReader(csv)) → CSVFormat.java:2207'],['真实文件入口','CSVParser.parse(Path,Charset,Format) → CSVParser.java:407'],['汇合点','CSVParser 私有构造器 :524 → createHeaders() :528']],
+ n:'同一座桥：new StringReader("id,currency,amount\\r\\n1,USD,100\\r\\n") 与读 d2.csv 得到的字符流完全相同，汇合到同一构造器（:524），构造期 :528 createHeaders() 定案表头。本页的关键分支是手工表头 + skip（:642-650）——A 组 a4 页已走过同一段源码，D2 换一个更尖锐的输入。'},
+{ph:'given',t:'given ①：内联 builder 链——手工表头 + setSkipHeaderRecord(true)',lines:[272,273],card:null,file:{cur:[],done:[]},
+ st:{fmt:FMT_D2,hr:'—（尚未进入 createHeaders）',hm:'—',recs:[],note:'setHeader(3 个名字) 存配置数组（:627-630）；setSkipHeaderRecord(true) 置位开关（:872-874）'},
+ watch:[['format.header','["colX","currency","amount"]（来自 :272，与文件首行无关）'],['format.skipHeaderRecord','true'],['setHeader 实现','CSVFormat.java:627-630（clone(header)）'],['setSkipHeaderRecord 实现','CSVFormat.java:872-874']],
+ n:'与 D1 借辅助方法不同，D2 直接用内联 builder 链（:272-273）。setHeader("colX","currency","amount") 把三个名字存成配置数组（CSVFormat.java:627-630）；.setSkipHeaderRecord(true) 置位跳行开关（:872-874），声明"文件首行不是数据"。两件事互相独立：前者定映射从哪来，后者定文件首行的去向。'},
+{ph:'given',t:'given ②：parse → :643 skip 分支 → :644 消费并丢弃文件首行',lines:[274],card:'card-c643',file:{cur:[0],done:[]},
+ st:{fmt:FMT_D2,hr:'null（:649 将被赋为配置数组）',hm:'[]（:633 已建空 map）',recs:[],note:'配置数组非空 → else 分支（:642）→ :643 skip=true 成立 → :644 消费文件首行（丢弃）'},
+ watch:[['分支','else（:642）——手工表头'],[':643 format.getSkipHeaderRecord()','true → 进入'],[':644 nextRecord()','文件首行 id,currency,amount → 消费并丢弃'],['已消费的文件行','1（构造期）']],
+ n:'配置数组非空，:635 不成立，走 else 分支（:642）。这里 :643 的检查真的会被执行（对照 a2b：自动探测分支走不到它）——skip=true 成立，:644 把文件首行 id,currency,amount 读掉并丢弃：不进映射、不留给数据迭代器，只可能留下 comment。'},
+{ph:'given',t:'given ③：:649 headerRecord = 配置数组——两个"首行"并列',lines:[274],card:'card-c643',file:{cur:[],done:[0]},
+ st:{fmt:FMT_D2,hr:HR_D2,hm:'[]（映射尚未建立）',recs:[],note:'两个"首行"并列：headerRecord 来自配置数组；文件首行文本已被 :644 丢弃——从头到尾没参与映射'},
+ watch:[['headerRecord','["colX","currency","amount"]（来自配置数组）'],['文件首行文本','id,currency,amount —— 已丢弃，从未参与映射'],[':649','headerRecord = formatHeader（绑定位置，不绑定文本）']],
+ n:':649 一锤定音：headerRecord 直接等于配置数组。此刻要分清两个"首行"：headerRecord（来自配置，colX 打头）与文件首行文本（id,currency,amount，已被丢弃）。文件首行从头到尾没参与映射——手工表头绑定的是位置，不是文件文本。'},
+{ph:'given',t:'given ④：映射循环 :672——键全部来自配置数组',lines:[274],card:'card-c672',file:{cur:[],done:[0]},
+ st:{fmt:FMT_D2,hr:HR_D2,hm:HM_D2,recs:[],note:'映射键全部来自配置数组（:649）——文件首行写的名字一个都没进来'},
+ watch:[['i=0','put("colX", 0)'],['i=1','put("currency", 1)'],['i=2','put("amount", 2)'],['headerMap','{colX=0, currency=1, amount=2}']],
+ n:'映射循环把配置数组逐列变成 名→下标：colX→0、currency→1、amount→2。map 里没有 id 这个 key——文件首行写的名字一个都没进来。将来 required 校验若对照这张 map，"文件里写了 id"毫无意义。'},
+{ph:'given',t:'given ⑤：数据惰性读取——值按位置对上配置名',lines:[274],card:null,file:{cur:[],done:[0,1]},
+ st:{fmt:FMT_D2,hr:HR_D2,hm:HM_D2,recs:['["1","USD","100"]'],note:'首行已被 :644 丢弃 → 迭代器只剩第 2 行'},
+ watch:[['records.size()','1'],['records[0].values','["1","USD","100"]'],['位置对位','colX=位置0 → "1"；currency=位置1 → "USD"；amount=位置2 → "100"']],
+ n:'数据行 1,USD,100 惰性读入，成为唯一记录。三个值按"位置"对上三个配置名：位置 0 的 "1" 属于 colX——尽管文件首行把这个位置叫 id。取值只认位置，不认文件首行当年的叫法。'},
+{ph:'then',t:'then ①：get("colX")——文件里从未出现过的名字，取到了值',lines:[275],card:'card-gets',file:{cur:[],done:[0,1]},
+ st:{fmt:FMT_D2,hr:HR_D2,hm:HM_D2,recs:['["1","USD","100"]'],note:'get("colX")：:135 查映射得 index=0 → :140 返回 values[0]="1"'},
+ watch:[['headerMap.get("colX")','0'],['values[0]','"1"'],['注意','"colX" 这个名字文件里从未出现——只因配置把它绑在位置 0']],
+ assert:{rows:AS_D2},
+ n:'按名取 colX：:135 查映射得 index=0，:140 返回 values[0]="1"。这是 D2 的核心证据：一个文件里从未出现过的名字，因为配置把它绑在位置 0，就能取到位置 0 的值。期望 "1"、实际 "1"，通过。'},
+{ph:'then',t:'then ②：get("currency")——命中的是配置里的 currency',lines:[276],card:null,file:{cur:[],done:[0,1]},
+ st:{fmt:FMT_D2,hr:HR_D2,hm:HM_D2,recs:['["1","USD","100"]'],note:'get("currency")：:135 查映射得 index=1 → :140 返回 values[1]="USD"'},
+ watch:[['headerMap.get("currency")','1'],['values[1]','"USD"'],['巧合提醒','配置的 currency 恰与文件首行第 2 个名字相同——就算不同名，取值也一样']],
+ assert:{rows:AS_D2.concat([['assertEquals("USD", records.get(0).get("currency"))','"USD"','"USD"',true]])},
+ n:'get("currency") 命中的是配置里的 currency（位置 1）→ "USD"。它恰好与文件首行第二个名字同名纯属巧合——把文件首行改成任何别的名字，这个取值都不变。'},
+{ph:'given',t:'given ⑥：第二次 parse（测试的不规则处，如实呈现）',lines:[277],card:null,file:{cur:[0,1],done:[]},
+ st:{fmt:FMT_D2,hr:'["colX","currency","amount"]（parser#2，同路径）',hm:HM_D2,recs:['["1","USD","100"]'],note:'parser#2 重新走 :643→:644→:649→:672，与主 parse 完全相同'},
+ watch:[['parser#2 输入','"id,currency,amount\\r\\n1,USD,100\\r\\n"（= d2.csv 两行）'],['parser#2 路径','skip 分支消费首行 → :649 headerRecord=配置 → :672 建映射'],['为什么要再 parse 一次','把 parser.getHeaderMap() 暴露出来直接检查（A 组 a2a 先例）']],
+ n:'测试的不规则处（如实呈现）：又开了一个解析器，把同样的两行重新 parse 一遍——为了把 getHeaderMap() 暴露出来直接检查映射本体。两次 parse 走完全相同的路径，结论互相印证。'},
+{ph:'then',t:'then ③：assertEquals(Integer.valueOf(0), …get("colX"))',lines:[278,279],card:'card-ghm',file:{cur:[0,1],done:[]},
+ st:{fmt:FMT_D2,hr:HR_D2,hm:HM_D2,recs:['["1","USD","100"]'],note:'直接核对映射本体：colX → Integer 0'},
+ watch:[['getHeaderMap()','防御性副本 {colX=0, currency=1, amount=2}（:736-737 putAll）'],['getHeaderMap().get("colX")','Integer 0'],['断言写法','assertEquals(Integer.valueOf(0), …)——期望值与映射值类型（Integer）严格对齐']],
+ assert:{rows:AS_D2.concat([['assertEquals("USD", records.get(0).get("currency"))','"USD"','"USD"',true],['assertEquals(Integer.valueOf(0), parser.getHeaderMap().get("colX"))','Integer 0','Integer 0',true]])},
+ n:'直接核对映射本体：colX 映射到 Integer 0。注意断言期望值写成 Integer.valueOf(0)——与 headerMap 的值类型严格对齐（断言表里记作 Integer 0）。三条断言全部通过。'},
+{ph:'then',t:'总结：D2 钉住的事实 + 对 setRequiredHeaders 的含义',lines:[271],card:null,file:{cur:[],done:[0,1]},
+ st:{fmt:FMT_D2,hr:HR_D2,hm:HM_D2,recs:['["1","USD","100"]'],note:'D2 钉住：① :644 消费并丢弃文件首行（skip 分支）② :649 headerRecord=配置数组——文件首行文本从未参与映射 ③ 映射=位置绑定：colX→0 可取值，文件里并无此名'},
+ watch:[['插入点提示（ch02-1-3 §D2）','required 校验对象是"最终生效的表头"（headerMap）'],['为什么必须在汇合点之后','headerMap 可能来自配置（本测试）也可能来自文件（A2 链路）'],['反例','放在 CSVFormat 校验（build 时）→ 漏掉文件表头']],
+ n:'D2 钉住的事实：手工表头绑定位置不绑定文本——文件首行被 :644 消费丢弃，映射键全部来自配置。对 setRequiredHeaders 的含义（ch02-1-3 §D2 插入点提示）：required 校验的对象是"最终生效的表头"（headerMap），它可能来自配置也可能来自文件——校验必须放在汇合点 createHeaders() 之后；放在 CSVFormat 校验里会漏掉文件表头。'}
+];
+const $=s=>document.querySelector(s);
+const dots=[];
+STEPS.forEach((s,j)=>{const d=document.createElement('div');d.className='dot';d.title=`${j+1}. ${s.t}`;d.onclick=()=>apply(j);$('#stageTrack').appendChild(d);dots.push(d);});
+function renderFile(f){document.querySelectorAll('.bline').forEach((el,i)=>{el.classList.toggle('cur',!!(f&&f.cur&&f.cur.includes(i)));el.classList.toggle('done',!!(f&&f.done&&f.done.includes(i)));});}
+function renderState(st){const el=$('#stateBox');
+ if(!st){el.innerHTML='<div class="empty">解析尚未开始</div>';return;}
+ let h='';
+ if(st.fmt)h+='<div class="sech">format（CSVFormat）</div><table class="kv">'+st.fmt.map(r=>'<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>').join('')+'</table>';
+ h+='<div class="sech">parser.headerRecord</div><div class="mono">'+st.hr+'</div>';
+ h+='<div class="sech">parser.headerMap</div>'+(st.hm==='∅'?'<div class="mono" style="color:var(--red);font-weight:600">null（无表头世界）</div>':Array.isArray(st.hm)?'<div class="hmwrap">'+st.hm.map(e=>'<span class="hmc">'+e[0]+' → '+e[1]+'</span>').join('')+'</div>':'<div class="mono dim">'+(st.hm||'—')+'</div>');
+ h+='<div class="sech">records（数据记录，惰性读取）</div>'+(st.recs&&st.recs.length?st.recs.map((r,i)=>'<span class="rec">records['+i+'] = '+r+'</span>').join(''):'<div class="mono dim">（尚未读取）</div>');
+ if(st.note)h+='<div class="note">'+st.note+'</div>';
+ el.innerHTML=h;}
+function renderWatch(w){$('#watchBox').innerHTML=w&&w.length?w.map(r=>'<div class="wr"><span class="wn">'+r[0]+'</span> = <span class="wv">'+r[1]+'</span></div>').join(''):'<div class="empty">—</div>';}
+function renderResult(s){let h='';
+ if(s.diff)h+='<div class="diffcard"><div class="dc-h">🔀 与 '+s.diff.vs+' 的唯一差异</div><div class="dc-row del"><span>− </span><code>'+s.diff.del+'</code></div><div class="dc-row add"><span>+ </span><code>'+s.diff.add+'</code></div><div class="dc-note">'+s.diff.note+'</div></div>';
+ if(s.exc)h+='<div class="exccard"><div class="ec-h">⛔ 异常卡片</div><div class="ec-type">'+s.exc.type+'</div><pre class="ec-msg">'+s.exc.msg+'</pre><div class="ec-loc">抛出位置：<span class="bp">●</span>'+s.exc.loc+'</div><div class="ec-stack">'+s.exc.stack.map(f=>'<div>⇠ '+f+'</div>').join('')+'</div>'+(s.exc.note?'<div class="ec-note">'+s.exc.note+'</div>':'')+'</div>';
+ if(s.assert)h+='<div class="ascard"><div style="font-size:12px;font-weight:600;margin-bottom:4px">✓ 断言：期望 vs 实际（特征测试：期望 = 现状实测值）</div><table class="astab"><tr><th>断言</th><th>期望</th><th>实际</th><th></th></tr>'+s.assert.rows.map(r=>'<tr><td>'+r[0]+'</td><td class="mono">'+r[1]+'</td><td class="mono">'+r[2]+'</td><td class="'+(r[3]?'ok':'')+'">'+(r[3]?'✓':'…')+'</td></tr>').join('')+'</table></div>';
+ $('#resultBox').innerHTML=h||'<div class="empty">—</div>';}
+let cur=0,timer=null;
+function apply(i){cur=Math.max(0,Math.min(STEPS.length-1,i));const s=STEPS[cur];
+ document.querySelectorAll('.cl').forEach(el=>{el.classList.remove('on','err');});
+ (s.lines||[]).forEach(l=>{const el=document.querySelector('.cl[data-l="'+l+'"]');if(el)el.classList.add('on');});
+ (s.err||[]).forEach(l=>{const el=document.querySelector('.cl[data-l="'+l+'"]');if(el){el.classList.add('err');el.classList.remove('on');}});
+ document.querySelectorAll('.card').forEach(c=>c.classList.remove('show'));
+ if(s.card){const c=document.getElementById(s.card);if(c)c.classList.add('show');}
+ $('#code').style.setProperty('--pc',PH[s.ph]);
+ renderFile(s.file);renderState(s.st);renderWatch(s.watch);renderResult(s);
+ $('#stepTitle').innerHTML='<span class="ph" style="background:'+PH[s.ph]+'">'+PHN[s.ph]+'</span>'+s.t;
+ $('#narrText').textContent=s.n;
+ $('#stepNo').textContent=(cur+1)+' / '+STEPS.length;
+ dots.forEach((d,j)=>{d.classList.toggle('cur',j===cur);d.style.background=PH[STEPS[j].ph];});
+ history.replaceState(null,'','?step='+cur);
+ $('#btnPrev').disabled=cur===0;$('#btnNext').disabled=cur===STEPS.length-1;
+ if(cur===STEPS.length-1&&timer){$('#autoPlay').checked=false;clearInterval(timer);timer=null;}}
+document.querySelectorAll('.cl[data-l]').forEach(el=>el.addEventListener('click',()=>{const l=+el.getAttribute('data-l');const j=STEPS.findIndex(s=>(s.lines||[]).includes(l)||(s.err||[]).includes(l));if(j>=0)apply(j);}));
+$('#btnPrev').onclick=()=>apply(cur-1);$('#btnNext').onclick=()=>apply(cur+1);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){e.preventDefault();apply(cur+1);}else if(e.key==='ArrowLeft'){e.preventDefault();apply(cur-1);}else if(e.key===' '){e.preventDefault();apply(cur+1);}});
+$('#autoPlay').onchange=e=>{if(e.target.checked){timer=setInterval(()=>apply(cur+1),6000);}else if(timer){clearInterval(timer);timer=null;}};
+const q=new URLSearchParams(location.search).get('step');
+apply(q!==null?parseInt(q,10):0);
+</script>
+</body>
+</html>

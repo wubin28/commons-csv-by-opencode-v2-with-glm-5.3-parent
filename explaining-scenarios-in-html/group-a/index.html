@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A 组 · 表头从哪来 —— 6 个特征测试的交互式图解</title>
+<style>
+:root{--bg:#fff;--panel:#f6f8fa;--bd:#d0d7de;--tx:#1f2328;--dim:#57606a;--file:#8250df;--given:#0969da;--when:#9a6700;--then:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:15px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--tx);background:var(--bg);padding:28px 40px;max-width:1180px;margin:0 auto}
+h1{font-size:24px;margin-bottom:6px}
+.sub{color:var(--dim);font-size:13px;margin-bottom:22px}
+h2{font-size:17px;margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+h3{font-size:14px;margin:14px 0 6px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.tcard{display:block;text-decoration:none;color:var(--tx);border:1px solid var(--bd);border-radius:10px;background:var(--panel);padding:12px 16px;transition:border-color .15s}
+.tcard:hover{border-color:var(--given)}
+.tcard .tc-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.tbadge{color:#fff;border-radius:6px;padding:1px 8px;font-size:13px;font-weight:700}
+.tname{font:12.5px Menlo,Consolas,monospace;color:var(--given)}
+.tone{font-size:13px}
+.tmeta{font-size:12px;color:var(--dim);margin-top:6px}
+.tmeta .v{color:var(--when)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;margin:8px 0 2px}
+.lg{display:flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.12)}
+/* 总览图 */
+.map{border:1px solid var(--bd);border-radius:10px;background:var(--panel);padding:18px;margin-top:8px;font-size:13px}
+.map-row{display:flex;gap:10px;align-items:stretch}
+.map-col{flex:1;display:flex;flex-direction:column;gap:8px}
+.mbox{border:1px solid var(--bd);border-radius:8px;background:#fff;padding:8px 12px}
+.mbox b{display:block;font-size:13px}
+.mbox .mfile{font:12px Menlo,Consolas,monospace;color:#8250df;background:#f0eaff;border-radius:4px;padding:0 6px;display:inline-block;margin:2px 0}
+.mbox .mdesc{font-size:12px;color:var(--dim)}
+.mbox .mlink{font-size:12px}
+.mbox .mlink a{color:var(--given);text-decoration:none}
+.mbox .mlink a:hover{text-decoration:underline}
+.src1{border-top:3px solid #8c959f}
+.src2{border-top:3px solid var(--file)}
+.src3{border-top:3px solid var(--given)}
+.merge{border:2px solid var(--red);background:#fff8c5}
+.out{border-top:3px solid var(--then)}
+.arrowbar{display:flex;gap:10px;margin:4px 0}
+.arrow{flex:1;text-align:center;color:var(--dim);font-size:18px}
+.small{font-size:12px;color:var(--dim)}
+code{font:12.5px Menlo,Consolas,monospace;background:var(--panel);border:1px solid var(--bd);border-radius:4px;padding:0 5px}
+.guide{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.gbox{border:1px solid var(--bd);border-radius:8px;background:#fff;padding:10px 14px}
+.gbox h3{margin-top:0}
+.gbox ul{padding-left:18px;font-size:13px}
+.foot{margin-top:30px;padding-top:8px;border-top:1px solid var(--bd);font-size:12px;color:var(--dim)}
+table.plain{border-collapse:collapse;font-size:12.5px;width:100%}
+table.plain th,table.plain td{border:1px solid var(--bd);padding:4px 8px;text-align:left;vertical-align:top}
+table.plain th{background:var(--panel)}
+</style>
+</head>
+<body>
+<h1>A 组 · 表头从哪来（format 配置 vs 文件内容）</h1>
+<div class="sub">HeadersCharacterizationTest · <code>HeaderSources</code> 嵌套类 6 个特征测试的交互式图解 · 浅色主题 · 每页从"虚构的等价 CSV 文件"出发，逐步走完 文件 → 等价桥 → given → when → then</div>
+
+<h2>① 先看总地图：三种表头来源，汇合到同一个 createHeaders()</h2>
+<div class="map">
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox src1"><b>来源 1：没有表头</b>
+        <div class="mdesc">format.header = <code>null</code>（如 CSVFormat.DEFAULT）</div>
+        <div class="mfile">a1.csv：USD,100␍␊CNY,200␍␊</div>
+        <div class="mdesc">构造期不消费任何行；headerMap 保持 <code>null</code>（:632 不进入）</div>
+        <div class="mlink">→ <a href="a1-noHeaderGetValueByIndexAndGetByNameThrows.html">A1 · 下标取值可，按名取值抛 IllegalStateException</a></div>
+      </div>
+    </div>
+    <div class="map-col">
+      <div class="mbox src2"><b>来源 2：文件自动探测</b>
+        <div class="mdesc">setHeader() 无参 → <code>String[0]</code>（长度 0 = 探测信号）</div>
+        <div class="mfile">a2a.csv：id,currency,amount␍␊1,USD,100␍␊2,CNY,200␍␊</div>
+        <div class="mdesc">:635 命中 → :637 构造期吃掉首行 → :639 首行成为 headerRecord（skip 标志在此分支不起作用）</div>
+        <div class="mlink">→ <a href="a2a-autoDetectedHeaderMapsNamesAndSkipsHeaderRecord.html">A2a · 文档推荐组合（skip=true）</a><br>
+        → <a href="a2b-autoDetectedHeaderWithoutSkipFlagStillSkipsHeaderLine.html">A2b · 对照变体（不设 skip，行为相同）</a></div>
+      </div>
+    </div>
+    <div class="map-col">
+      <div class="mbox src3"><b>来源 3：手工配置</b>
+        <div class="mdesc">setHeader("id",...) → 配置数组</div>
+        <div class="mfile">a3.csv：1,USD,100␍␊2,CNY,200␍␊（无表头行）<br>a4.csv：id,currency,amount␍␊1,USD,100␍␊（自带表头行）</div>
+        <div class="mdesc">else 分支 → :649 headerRecord = 配置数组；:643-644 的 skip 是<b>真开关</b>（决定文件首行是否被消费）</div>
+        <div class="mlink">→ <a href="a3-manualHeaderOnHeaderlessSource.html">A3 · 源无表头行</a><br>
+        → <a href="a4-manualHeaderWithSkipHeaderRecordSkipsFileHeaderLine.html">A4 · 文件自带表头 + skip=true</a><br>
+        → <a href="a4b-manualHeaderWithoutSkipReadsFileHeaderLineAsData.html">A4b · 对照变体（忘设 skip → 表头行混进数据）</a></div>
+      </div>
+    </div>
+  </div>
+  <div class="arrowbar"><div class="arrow">↓</div><div class="arrow">↓</div><div class="arrow">↓</div></div>
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox merge"><b>汇合点：CSVParser.createHeaders()（CSVParser.java:628-683）</b>
+        <div class="mdesc">三种来源都到这里变成统一的表头世界：headerRecord + headerMap（名 → 下标）。现有的表头校验（空名 :658-659、重复名 :665-668）也在这里抛错——先于任何数据记录被读取。将来的 setRequiredHeaders 校验应放在汇合点之后（ch02-1-3 §3 候选②）。</div>
+      </div>
+    </div>
+  </div>
+  <div class="arrowbar"><div class="arrow">↓</div></div>
+  <div class="map-row">
+    <div class="map-col">
+      <div class="mbox out"><b>下游：惰性数据流 + 按名取值</b>
+        <div class="mdesc">构造完成后，CSVRecordIterator 逐行吐数据记录（records）；CSVRecord.get(String) 用 headerMap 查下标取值（:135 → :140），get(int) 纯数组下标（:104）。A1 证明无 headerMap 时按名取值抛 IllegalStateException（:132-133）。</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="small">一句话版本：<b>表头校验有两个时机</b>——手工表头在 builder.get()（build 时），文件表头在 format.parse()（parse 时）；而<b>数据记录永远是惰性的</b>，只会在构造完成之后才被读。（ch02-1-3 §1）</div>
+
+<h2>② 六张交互图（按推荐阅读顺序）</h2>
+<div class="cards">
+  <a class="tcard" href="a1-noHeaderGetValueByIndexAndGetByNameThrows.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">A1</span><span class="tname">noHeaderGetValueByIndexAndGetByNameThrows</span></div>
+    <div class="tone">无表头 CSV：下标取值畅通，按名取值抛 <code>IllegalStateException</code>（不是 IllegalArgumentException）。</div>
+    <div class="tmeta">12 步 · 文件 2×2 · 断言 6 条</div>
+  </a>
+  <a class="tcard" href="a2a-autoDetectedHeaderMapsNamesAndSkipsHeaderRecord.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">A2a</span><span class="tname">autoDetectedHeaderMapsNamesAndSkipsHeaderRecord</span></div>
+    <div class="tone">自动探测主干：首行在构造期被吃掉（:637）、映射建立（:672）、表头行不进 records。</div>
+    <div class="tmeta">13 步 · 文件 3×3（1 表头 + 2 数据） · 断言 6 条</div>
+  </a>
+  <a class="tcard" href="a2b-autoDetectedHeaderWithoutSkipFlagStillSkipsHeaderLine.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">A2b</span><span class="tname">autoDetectedHeaderWithoutSkipFlagStillSkipsHeaderLine</span> <span class="v">⟵ a2a 变体</span></div>
+    <div class="tone">不设 skip 也一样：自动探测分支里 :643 走不到，skipHeaderRecord 是冗余标志（踩坑记录 P3）。</div>
+    <div class="tmeta">9 步 · 文件 2×3 · 断言 2 条 · 含 diff 对比卡</div>
+  </a>
+  <a class="tcard" href="a3-manualHeaderOnHeaderlessSource.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">A3</span><span class="tname">manualHeaderOnHeaderlessSource</span></div>
+    <div class="tone">手工表头 + 纯数据文件：配置数组直接成为 headerRecord（:649），文件内容不参与建表头。</div>
+    <div class="tmeta">9 步 · 文件 2×3（全数据） · 断言 2 条</div>
+  </a>
+  <a class="tcard" href="a4-manualHeaderWithSkipHeaderRecordSkipsFileHeaderLine.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">A4</span><span class="tname">manualHeaderWithSkipHeaderRecordSkipsFileHeaderLine</span></div>
+    <div class="tone">手工表头 + 文件自带表头行：skip=true 是真开关——:644 构造期消费并丢弃文件首行。</div>
+    <div class="tmeta">11 步 · 文件 2×3（1 表头 + 1 数据） · 断言 3 条</div>
+  </a>
+  <a class="tcard" href="a4b-manualHeaderWithoutSkipReadsFileHeaderLineAsData.html">
+    <div class="tc-top"><span class="tbadge" style="background:#8250df">A4b</span><span class="tname">manualHeaderWithoutSkipReadsFileHeaderLineAsData</span> <span class="v">⟵ a4 变体</span></div>
+    <div class="tone">忘设 skip 的"事故现场"：文件表头行静默混进 records[0]，两条断言全过——不报错的错。</div>
+    <div class="tmeta">9 步 · 文件同 a4 · 断言 2 条 · 含 diff 对比卡</div>
+  </a>
+</div>
+
+<h2>③ 阅读指南：怎么用这些交互页</h2>
+<div class="guide">
+  <div class="gbox">
+    <h3>步进操作</h3>
+    <ul>
+      <li>底部按钮「◀ 上一步 / 下一步 ▶」，或键盘 <code>←</code> / <code>→</code> / 空格；</li>
+      <li>顶部一排圆点是全部步骤（颜色=阶段），点击可跳；</li>
+      <li>点击<b>测试代码的任意一行</b>，直接跳到覆盖它的那一步；</li>
+      <li>「自动播放」开关：约 6 秒/步，播完自动停；</li>
+      <li>URL 支持 <code>?step=N</code> 直达任意步（0 起），例如 <code>a1-….html?step=10</code>。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>画面分区</h3>
+    <ul>
+      <li><b>左侧·测试代码</b>：全部行从第 0 步就可见（先有地图），当前步覆盖的行高亮，行号 = 测试文件内真实行号；</li>
+      <li><b>左侧下方·源码剧场</b>：随步骤展开的源码摘录卡片（真实源码 + 行号），<span style="color:#cf222e">●</span> 红点 = ch02-1-3 建议断点；</li>
+      <li><b>右侧·四个面板</b>：文件字节视图（紫色高亮当前被消费的行，<code>\r\n</code> 显式可见）→ 解析器状态（headerRecord / headerMap / records 随步生长）→ 变量监视盒 → 断言·异常·差异。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>颜色图例</h3>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="background:#8250df"></span>文件 / 等价桥</span>
+      <span class="lg"><span class="sw" style="background:#0969da"></span>given（准备）</span>
+      <span class="lg"><span class="sw" style="background:#9a6700"></span>when（被测行为）</span>
+      <span class="lg"><span class="sw" style="background:#1a7f37"></span>then（断言）</span>
+      <span class="lg"><span class="sw" style="background:#cf222e"></span>断点 / 异常</span>
+    </div>
+    <ul>
+      <li>断言表里"期望"= 测试写死的值，"实际"= ch02-1-2 / ch02-1-3 实测记载的当前行为——<b>特征测试就是把现状当期望钉住</b>；</li>
+      <li>变体页（a2b、a4b）的「🔀 diff 对比卡」出现在差异起作用的那一步。</li>
+    </ul>
+  </div>
+  <div class="gbox">
+    <h3>为什么每页都从"虚构的 CSV 文件"开始？</h3>
+    <ul>
+      <li>6 个测试实际都用 <code>new StringReader("…")</code> 内联字符串喂数据，仓库里没有 .csv 文件；</li>
+      <li>解析入口只认 Reader：<code>format.parse(Reader)</code>（CSVFormat.java:2207）与 <code>CSVParser.parse(Path,…)</code>（:407）汇合到同一构造器（:524），表头在构造期定案（:528）；</li>
+      <li>所以"内联字符串"与"读文件"解析路径完全相同——每页第 0 步给出等价文件画面，第 1 步把这座桥讲透。</li>
+    </ul>
+  </div>
+</div>
+
+<h2>④ 6 个测试 × 三条来源链（速查表）</h2>
+<table class="plain">
+  <tr><th>测试</th><th>format.header</th><th>skipHeaderRecord</th><th>文件形态</th><th>构造期消费</th><th>headerMap</th><th>records[0]</th></tr>
+  <tr><td><a href="a1-noHeaderGetValueByIndexAndGetByNameThrows.html">A1</a></td><td>null</td><td>false</td><td>无表头，2 行数据</td><td>0 行</td><td>null</td><td>["USD","100"]</td></tr>
+  <tr><td><a href="a2a-autoDetectedHeaderMapsNamesAndSkipsHeaderRecord.html">A2a</a></td><td>String[0]</td><td>true（冗余）</td><td>1 表头 + 2 数据</td><td>首行（:637）</td><td>{id=0,currency=1,amount=2}</td><td>["1","USD","100"]</td></tr>
+  <tr><td><a href="a2b-autoDetectedHeaderWithoutSkipFlagStillSkipsHeaderLine.html">A2b</a></td><td>String[0]</td><td>false</td><td>1 表头 + 1 数据</td><td>首行（:637）</td><td>{id=0,currency=1,amount=2}</td><td>["1","USD","100"]</td></tr>
+  <tr><td><a href="a3-manualHeaderOnHeaderlessSource.html">A3</a></td><td>[id,currency,amount]</td><td>false</td><td>无表头，2 行数据</td><td>0 行</td><td>{id=0,currency=1,amount=2}</td><td>["1","USD","100"]</td></tr>
+  <tr><td><a href="a4-manualHeaderWithSkipHeaderRecordSkipsFileHeaderLine.html">A4</a></td><td>[id,currency,amount]</td><td><b>true（真开关）</b></td><td>1 表头 + 1 数据</td><td>首行（:644，丢弃）</td><td>{id=0,currency=1,amount=2}</td><td>["1","USD","100"]</td></tr>
+  <tr><td><a href="a4b-manualHeaderWithoutSkipReadsFileHeaderLineAsData.html">A4b</a></td><td>[id,currency,amount]</td><td><b>false（忘设）</b></td><td>1 表头 + 1 数据</td><td>0 行</td><td>{id=0,currency=1,amount=2}</td><td>["id","currency","amount"]（!）</td></tr>
+</table>
+<div class="small">注意 A2 与 A4 里 skipHeaderRecord 的地位翻转：自动探测分支（:635-641）里它不被检查；手工分支（:643-649）里它决定文件首行的命运。</div>
+
+<div class="foot">ch02-1-13 · A 组 6 测试交互图解 · 代码锚：commons-csv 分支 ch02-after（24562da2），行号与行为结论全部来自 ch02-1-2-scenarios-for-warming-up.md 与 ch02-1-3-debug-guide.md 的实测记载 · 测试代码逐字取自 HeadersCharacterizationTest.java，未做任何改动</div>
+</body>
+</html>
