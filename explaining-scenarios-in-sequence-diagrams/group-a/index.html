@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>A 组 · HeadersCharacterizationTest 时序图导航</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --panel-bg: #ffffff; --border: #d8dee6; --text: #1f2430;
+    --text-dim: #5b6472; --accent: #2f6fed; --accent-soft: #e8f0ff;
+    --given: #2f9e44; --when: #e8590c; --then: #9c36b5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 28px 24px 60px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p.lead { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin-top: 0; }
+  .legend { display: flex; gap: 10px; margin: 14px 0 22px; font-size: 12.5px; }
+  .legend span { padding: 2px 8px; border-radius: 999px; color: #fff; }
+  .legend .given { background: var(--given); }
+  .legend .when { background: var(--when); }
+  .legend .then { background: var(--then); }
+  .card-list { display: flex; flex-direction: column; gap: 12px; }
+  .card {
+    display: block; background: var(--panel-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; text-decoration: none; color: var(--text);
+  }
+  .card:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .card .id { font-weight: 700; color: var(--accent); margin-right: 8px; }
+  .card .title { font-weight: 600; }
+  .card .desc { display: block; margin-top: 4px; font-size: 13px; color: var(--text-dim); }
+  .card .meta { display: block; margin-top: 6px; font-size: 12px; color: var(--text-dim); font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .footer-note {
+    margin-top: 28px; font-size: 13px; color: var(--text-dim);
+    background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  }
+  .footer-note a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>A 组 · 表头从哪来（format 配置 vs 文件内容）</h1>
+  <p class="lead">
+    以下 6 个页面用可逐步播放的 UML 时序图，重新讲解
+    <code>HeadersCharacterizationTest.HeaderSources</code> 的 6 个测试用例：从一个"虚拟 CSV 文件"
+    （<code>new StringReader(csv)</code>）开始，到 Given 准备数据、When 调用待测行为、Then 断言结果，
+    逐步执行完整过程；每个测试都至少下钻到 <code>Lexer</code> 的字符级切分一次，把"字符流 → 表头/记录"的断层补上。
+  </p>
+  <div class="legend">
+    <span class="given">Given</span>
+    <span class="when">When</span>
+    <span class="then">Then</span>
+  </div>
+
+  <div class="card-list">
+    <a class="card" href="a1-noHeaderGetValueByIndexAndGetByNameThrows-in-sequence-diagram.html">
+      <span class="id">A1</span><span class="title">无表头 CSV：按下标取值可以，按列名取值抛异常</span>
+      <span class="desc">headerMap 为 null 时，按名取值抛 IllegalStateException（不是 IllegalArgumentException）。</span>
+      <span class="meta">noHeaderGetValueByIndexAndGetByNameThrows（:67-81）</span>
+    </a>
+    <a class="card" href="a2a-autoDetectedHeaderMapsNamesAndSkipsHeaderRecord-in-sequence-diagram.html">
+      <span class="id">A2a</span><span class="title">setHeader() 无参 = 自动探测首行为表头（文档推荐组合）</span>
+      <span class="desc">表头行在 CSVParser 构造期间被消费，不会出现在数据记录里。</span>
+      <span class="meta">autoDetectedHeaderMapsNamesAndSkipsHeaderRecord（:85-96）</span>
+    </a>
+    <a class="card" href="a2b-autoDetectedHeaderWithoutSkipFlagStillSkipsHeaderLine-in-sequence-diagram.html">
+      <span class="id">A2b</span><span class="title">自动探测分支下，不设 skipHeaderRecord 也一样跳过表头行（对照）</span>
+      <span class="desc">skipHeaderRecord 的判断在另一个 if 分支里，自动探测分支根本走不到那里。</span>
+      <span class="meta">autoDetectedHeaderWithoutSkipFlagStillSkipsHeaderLine（:100-105）</span>
+    </a>
+    <a class="card" href="a3-manualHeaderOnHeaderlessSource-in-sequence-diagram.html">
+      <span class="id">A3</span><span class="title">手工指定表头，源数据本身没有表头行</span>
+      <span class="desc">配置数组直接成为 headerRecord，完全不读文件内容。</span>
+      <span class="meta">manualHeaderOnHeaderlessSource（:109-114）</span>
+    </a>
+    <a class="card" href="a4-manualHeaderWithSkipHeaderRecordSkipsFileHeaderLine-in-sequence-diagram.html">
+      <span class="id">A4</span><span class="title">手工表头 + 源首行也是表头 → setSkipHeaderRecord(true) 跳过首行</span>
+      <span class="desc">文件首行被消费丢弃，但映射仍然来自配置数组，不是文件内容。</span>
+      <span class="meta">manualHeaderWithSkipHeaderRecordSkipsFileHeaderLine（:118-125）</span>
+    </a>
+    <a class="card" href="a4b-manualHeaderWithoutSkipReadsFileHeaderLineAsData-in-sequence-diagram.html">
+      <span class="id">A4b</span><span class="title">手工表头但忘设 skipHeaderRecord → 文件自己的表头行被当作第一条数据（对照）</span>
+      <span class="desc">与 A4 配置几乎相同，唯独忘了 skip，于是文件首行原样被当成数据读出。</span>
+      <span class="meta">manualHeaderWithoutSkipReadsFileHeaderLineAsData（:129-134）</span>
+    </a>
+  </div>
+
+  <div class="footer-note">
+    每个页面都支持：←/→ 单步播放、自动播放（可调速）、跳到 Given/When/Then、导出整图 PNG/PDF、
+    导出当前步 PNG、按 <code>P</code> 键切换 16:9 演示模式（用于录屏/讲课）。<br />
+    这批页面是时序可视化版本，文字讲解版本见
+    <a href="../../explaining-scenarios-in-html/group-a/index.html">explaining-scenarios-in-html/group-a/</a>（互为补充，不互相替代）。
+  </div>
+</div>
+</body>
+</html>

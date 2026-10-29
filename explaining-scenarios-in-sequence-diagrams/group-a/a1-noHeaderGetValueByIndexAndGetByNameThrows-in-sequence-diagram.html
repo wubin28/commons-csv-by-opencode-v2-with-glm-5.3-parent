@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>A1 · 无表头按下标取值 / 按名取值抛异常 · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← A 组导航</a></div>
+  <header class="page-header">
+    <h1>A1 · 无表头 CSV：按下标取值可以，按列名取值抛异常</h1>
+    <p class="subtitle">HeadersCharacterizationTest.HeaderSources#noHeaderGetValueByIndexAndGetByNameThrows（:67-81）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件而非字符串字面量，第一步会是 <code>Files.newBufferedReader(path)</code> 读取一个 <code>.csv</code> 文件；
+    这里用 <code>new StringReader("USD,100\r\nCNY,200\r\n")</code> 等价地扮演"文件"角色，字节内容与磁盘上这样一个文件完全一致。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-a/a1-noHeaderGetValueByIndexAndGetByNameThrows.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <span class="disabled">« 已是 A 组第一个测试</span>
+    <a href="a2a-autoDetectedHeaderMapsNamesAndSkipsHeaderRecord-in-sequence-diagram.html">A2a：自动探测表头 »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "a1",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据
+  Test->>Format: 使用 CSVFormat.DEFAULT（未配置表头）
+  Test->>File: new StringReader(USD,100 CNY,200)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders() 读取 format.getHeader()
+  Parser-->>Parser: formatHeader 为 null，headerMap 保持 null
+  Test->>Parser: parser.getRecords()
+  Parser->>Lexer: nextToken() 读取第一行第一个字段
+  Lexer->>Lexer: parseSimpleToken 逐字符扫描直到逗号
+  Lexer-->>Parser: 返回 TOKEN USD
+  Lexer->>Lexer: parseSimpleToken 继续扫描第二个字段
+  Lexer->>Lexer: readEndOfLine 消费 回车换行
+  Lexer-->>Parser: 返回 EORECORD 100
+  Parser->>Rec: 生成第1条记录 USD 100
+  loop 第2行 CNY,200（同样流程，已折叠）
+    Parser->>Rec: 生成第2条记录 CNY 200
+  end
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 断言 records.size 等于 2
+  Test->>Rec: 断言 get(0) 下标取值等于 USD
+  Test->>Rec: 断言 get(1) 下标取值等于 100
+  Test->>Parser: 另开一次解析，断言 getHeaderMap 为 null
+  Test->>Rec: 调用 get currency 按名取值
+  Rec-->>Test: 抛出 IllegalStateException 无表头映射
+  end
+`,
+  steps: [
+    { phase: "given", label: "使用 CSVFormat.DEFAULT（未配置表头）",
+      code: "HeadersCharacterizationTest.java:68",
+      stmt: "final CSVFormat format = CSVFormat.DEFAULT;",
+      why: "<b>Given</b>：选用没有配置任何表头的预定义格式。<code>CSVFormat.DEFAULT</code> 内部 <code>header</code> 字段为 <code>null</code>，这是本测试一切现象的根源。",
+      vars: { format: "CSVFormat.DEFAULT（header=null）" } },
+    { phase: "given", label: "new StringReader(USD,100 CNY,200)",
+      code: "HeadersCharacterizationTest.java:69",
+      stmt: 'final List<CSVRecord> records =\n    parseRecords(format, "USD,100\\r\\nCNY,200\\r\\n");',
+      why: "<b>Given</b>：测试数据是字符串字面量，经 <code>new StringReader(csv)</code> 包装后喂给解析器——它在运行时的角色与读一个内容完全相同的磁盘 <code>.csv</code> 文件等价，只是省去了文件 I/O。",
+      vars: { csv: '"USD,100\\r\\nCNY,200\\r\\n"（虚拟文件内容）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "<b>When</b>：调用待测入口。内部会 new 一个 <code>CSVParser</code>，其私有构造函数会立刻着手建立表头。",
+      vars: {} },
+    { phase: "when", label: "createHeaders() 读取 format.getHeader()",
+      code: "CSVParser.java:631",
+      stmt: "final String[] formatHeader = format.getHeader();",
+      why: "构造函数第 528 行 <code>this.headers = createHeaders();</code> 已经执行到这里：取出 format 配置的表头数组。",
+      vars: { formatHeader: "null" } },
+    { phase: "when", label: "formatHeader 为 null，headerMap 保持 null",
+      code: "CSVParser.java:632",
+      stmt: "if (formatHeader != null) { ... } // 不进入",
+      why: "因为 <code>DEFAULT</code> 没配表头，632 行判断为假，映射循环整段跳过，<code>headerMap</code> 从未被赋值，最终 682 行 <code>return new Headers(headerMap, ...)</code> 中 <code>headerMap</code> 原样是 <code>null</code>。这就是\"无表头世界\"的真正定案时刻——在任何数据行被读取之前。",
+      vars: { "headers.headerMap": "null" } },
+    { phase: "when", label: "parser.getRecords()",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "进入惰性读取阶段。此前的表头建立发生在构造期；数据记录只有现在才开始真正读取。",
+      vars: {} },
+    { phase: "when", label: "nextToken() 读取第一行第一个字段",
+      code: "Lexer.java:256",
+      stmt: "Token nextToken(final Token reusableToken) throws IOException {",
+      why: "<code>nextRecord()</code>（CSVParser.java:915）循环调用这里，把字符流切成一个个 token。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken 逐字符扫描直到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：U S D ',' → 命中 isDelimiter(',')",
+      why: "下钻到字符级（仅在第一行展开一次）：<code>parseSimpleToken</code> 一个个字符读取，调用 <code>isDelimiter(',')</code>（Lexer.java:150）判断字段边界，直到遇到逗号。",
+      vars: { "当前字符缓冲": '"USD"' } },
+    { phase: "when", label: "返回 TOKEN USD",
+      code: "Lexer.java:437",
+      stmt: "token.type = TOKEN; token.content.append(\"USD\");",
+      why: "第一个字段切出完成，类型是普通 <code>TOKEN</code>（不是行尾）。",
+      vars: { "token[0]": '"USD"' } },
+    { phase: "when", label: "parseSimpleToken 继续扫描第二个字段",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：1 0 0 → 遇到 \\r",
+      why: "继续同样的逐字符扫描，这次在遇到 <code>\\r</code> 时结束字段（而不是逗号）。",
+      vars: { "当前字符缓冲": '"100"' } },
+    { phase: "when", label: "readEndOfLine 消费 回车换行",
+      code: "Lexer.java:475",
+      stmt: "// readEndOfLine(ch): 识别 \\r\\n 作为一条记录的结束",
+      why: "<code>readEndOfLine</code> 负责识别并吃掉 <code>\\r\\n</code>，告诉上层\"这一行到此结束\"。",
+      vars: {} },
+    { phase: "when", label: "返回 EORECORD 100",
+      code: "Lexer.java:437",
+      stmt: "token.type = EORECORD; token.content.append(\"100\");",
+      why: "第二个字段连带\"行结束\"标记一起返回，类型是 <code>EORECORD</code>（End Of Record）。",
+      vars: { "token[1]": '"100"（EORECORD）' } },
+    { phase: "when", label: "生成第1条记录 USD 100",
+      code: "CSVParser.java:594-602",
+      stmt: "addRecordValue(...); // 收集进 recordList",
+      why: "两个 token 被组装成 <code>CSVRecord</code> 的 values 数组 <code>[\"USD\",\"100\"]</code>；因为没有表头，这条记录没有任何名字映射，只有位置。",
+      vars: { "records[0].values": '["USD", "100"]' } },
+    { phase: "when", label: "生成第2条记录 CNY 200",
+      code: "Lexer/CSVParser（同上流程，折叠）",
+      stmt: "// 第二行 CNY,200 重复同样的 token 切分 → addRecordValue",
+      why: "第二行与第一行走的是完全相同的字符级流程，这里折叠不再展开，只看结果。",
+      vars: { "records[1].values": '["CNY", "200"]', "records.size": "2" } },
+    { phase: "then", label: "断言 records.size 等于 2",
+      code: "HeadersCharacterizationTest.java:70",
+      stmt: "assertEquals(2, records.size());",
+      why: "<b>Then</b>：两行数据都被正确读出。",
+      vars: {} },
+    { phase: "then", label: "断言 get(0) 下标取值等于 USD",
+      code: "CSVRecord.java:103-105",
+      stmt: 'assertEquals("USD", records.get(0).get(0));\n// get(int i) { return values[i]; }',
+      why: "按下标取值完全不经过 <code>headerMap</code>，只是数组访问——这也是为什么即便 <code>headerMap == null</code>，这一句依然能成功。",
+      vars: {} },
+    { phase: "then", label: "断言 get(1) 下标取值等于 100",
+      code: "CSVRecord.java:103-105",
+      stmt: 'assertEquals("100", records.get(0).get(1));',
+      why: "同上，第二列按下标取值同样正常。",
+      vars: {} },
+    { phase: "then", label: "另开一次解析，断言 getHeaderMap 为 null",
+      code: "HeadersCharacterizationTest.java:74-76",
+      stmt: 'try (CSVParser parser = format.parse(new StringReader("USD,100\\r\\n"))) {\n    assertNull(parser.getHeaderMap());\n}',
+      why: "测试额外开了第二次 <code>parse</code>（这里如实画出，没有合并），直接验证 <code>Headers.headerMap</code> 确实是 <code>null</code> 而不是什么都没发生的巧合。",
+      vars: { "parser2.getHeaderMap()": "null" } },
+    { phase: "then", label: "调用 get currency 按名取值",
+      code: "HeadersCharacterizationTest.java:78-79",
+      stmt: 'final IllegalStateException e = assertThrows(IllegalStateException.class,\n    () -> records.get(0).get("currency"));',
+      why: "现在才尝试按列名取值——注意这是在数据早已读完之后才触发的\"晚失败\"。",
+      vars: {} },
+    { phase: "then", label: "抛出 IllegalStateException 无表头映射",
+      code: "CSVRecord.java:132-134",
+      stmt: 'if (headerMap == null) {\n    throw new IllegalStateException(\n        "No header mapping was specified, the record values can\'t be accessed by name");\n}',
+      why: "因为 <code>headerMap == null</code>，抛出的是 <b>IllegalStateException</b>（不是 B 组 B1 的 IllegalArgumentException）——这是\"完全没有表头\"与\"有表头但查不到列名\"两种不同异常类型的分界线。",
+      vars: { "异常类型": "IllegalStateException" } },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

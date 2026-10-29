@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>A2b · 不设 skip 标志仍跳过表头行（对照） · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← A 组导航</a></div>
+  <header class="page-header">
+    <h1>A2b · 自动探测分支下，不设 skipHeaderRecord 也一样跳过表头行</h1>
+    <p class="subtitle">HeadersCharacterizationTest.HeaderSources#autoDetectedHeaderWithoutSkipFlagStillSkipsHeaderLine（:100-105）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件，第一步会是读取一个首行写着 <code>id,currency,amount</code> 的 <code>.csv</code> 文件；这里用 <code>new StringReader(csv)</code> 等价扮演。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-a/a2b-autoDetectedHeaderWithoutSkipFlagStillSkipsHeaderLine.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="a2a-autoDetectedHeaderMapsNamesAndSkipsHeaderRecord-in-sequence-diagram.html">« A2a：带 skip 的推荐组合</a>
+    <a href="a3-manualHeaderOnHeaderlessSource-in-sequence-diagram.html">A3：手工表头 »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "a2b",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据（故意不设 skipHeaderRecord）
+  Test->>Format: setHeader() 无参 不设置 skipHeaderRecord
+  Test->>File: new StringReader(id,currency,amount 1,USD,100)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders() 取出 formatHeader 长度为0
+  Parser->>Parser: 走自动探测分支 if formatHeader.length==0
+  Parser->>Lexer: nextToken() 读取首行三个字段
+  Lexer-->>Parser: 返回 id currency amount 三个token
+  Parser->>Parser: 首行被当场消费 headerRecord 赋值
+  Parser->>Parser: 对照 643行skip判断分支属于另一个if 自动探测分支根本不会走到那里
+  loop 建立映射 id到0 currency到1 amount到2
+    Parser->>Parser: headerMap.put 写入一个名字到下标
+  end
+  Test->>Parser: parser.getRecords()
+  Parser->>Rec: 读取唯一数据行 生成记录 1 USD 100
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 断言 records.size 等于 1
+  Test->>Rec: 断言 get currency 按名取值等于 USD
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader() 无参 不设置 skipHeaderRecord",
+      code: "HeadersCharacterizationTest.java:101",
+      stmt: "final CSVFormat format = CSVFormat.DEFAULT.builder().setHeader().get();",
+      why: "<b>Given</b>：与 A2a 唯一的区别——故意<b>不调用</b> <code>setSkipHeaderRecord(true)</code>。<code>skipHeaderRecord</code> 字段保持默认值 <code>false</code>。",
+      vars: { format: "setHeader()（空数组），skipHeaderRecord=false" } },
+    { phase: "given", label: "new StringReader(id,currency,amount 1,USD,100)",
+      code: "HeadersCharacterizationTest.java:102",
+      stmt: 'parseRecords(format, "id,currency,amount\\r\\n1,USD,100\\r\\n");',
+      why: "只给一行表头 + 一行数据，便于看清\"表头到底有没有被当成数据\"。",
+      vars: { csv: '"id,currency,amount\\r\\n1,USD,100\\r\\n"' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "进入构造函数，第 528 行调用 <code>createHeaders()</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders() 取出 formatHeader 长度为0",
+      code: "CSVParser.java:631",
+      stmt: "final String[] formatHeader = format.getHeader(); // String[0]",
+      why: "和 A2a 完全一致：<code>setHeader()</code> 无参给出的是空数组而不是 <code>null</code>。",
+      vars: { formatHeader: "String[0]（长度为0）" } },
+    { phase: "when", label: "走自动探测分支 if formatHeader.length==0",
+      code: "CSVParser.java:635",
+      stmt: "if (formatHeader.length == 0) { // 进入这个分支",
+      why: "注意：这是一个独立的 <code>if</code> 分支，与下面即将看到的 <code>skipHeaderRecord</code> 判断（:643）在<b>不同的 if/else 分支</b>里——自动探测分支根本不会执行到 643 行。",
+      vars: {} },
+    { phase: "when", label: "nextToken() 读取首行三个字段",
+      code: "CSVParser.java:637 → Lexer.java:256",
+      stmt: "final CSVRecord nextRecord = nextRecord();",
+      why: "637 行在构造期间主动读了一行——这一步与 <code>skipHeaderRecord</code> 的值无关，它是自动探测分支<b>固有</b>的行为。",
+      vars: {} },
+    { phase: "when", label: "返回 id currency amount 三个token",
+      code: "Lexer.java:437/475",
+      stmt: "// token: TOKEN id, TOKEN currency, EORECORD amount",
+      why: "三个字段的切分流程与 A1/A2a 相同（此处不再逐字符展开，已在其他测试页讲过）。",
+      vars: { "nextRecord.values": '["id","currency","amount"]' } },
+    { phase: "when", label: "首行被当场消费 headerRecord 赋值",
+      code: "CSVParser.java:639",
+      stmt: "headerRecord = nextRecord.values();",
+      why: "表头行已经被吃掉——<b>与 skipHeaderRecord 的值完全无关</b>，这正是本测试要钉住的现状。",
+      vars: { headerRecord: '["id","currency","amount"]' } },
+    { phase: "when", label: "对照 643行skip判断分支属于另一个if 自动探测分支根本不会走到那里",
+      code: "CSVParser.java:643",
+      stmt: "if (format.getSkipHeaderRecord()) { ... } // 本分支（自动探测）内根本没有这行代码",
+      why: "这一步没有真实的方法调用，只是提醒：<code>skipHeaderRecord</code> 判断属于\"手工表头\"分支（A4 会看到），对自动探测分支是<b>冗余标志</b>。",
+      vars: { "format.skipHeaderRecord": "false（但不影响结果）" } },
+    { phase: "when", label: "headerMap.put 写入一个名字到下标",
+      code: "CSVParser.java:672",
+      stmt: "headerMap.put(header, Integer.valueOf(i)); // i=0,1,2",
+      why: "建立 id→0、currency→1、amount→2 映射，与 A2a 完全一样。",
+      vars: { headerMap: "{id=0, currency=1, amount=2}" } },
+    { phase: "when", label: "parser.getRecords()",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "开始惰性读取数据记录，此时文件里只剩下一行 <code>1,USD,100</code>。",
+      vars: {} },
+    { phase: "when", label: "读取唯一数据行 生成记录 1 USD 100",
+      code: "CSVParser.java:915, 594-602",
+      stmt: 'addRecordValue(...); // ["1","USD","100"]',
+      why: "唯一一条数据记录，持有同一个 <code>headerMap</code>。",
+      vars: { "records[0].values": '["1","USD","100"]', "records.size": "1" } },
+    { phase: "then", label: "断言 records.size 等于 1",
+      code: "HeadersCharacterizationTest.java:103",
+      stmt: "assertEquals(1, records.size());",
+      why: "<b>Then</b>：只有 1 条记录，证明表头行（第1行）<b>没有</b>被当成数据——即便没设 skip。",
+      vars: {} },
+    { phase: "then", label: "断言 get currency 按名取值等于 USD",
+      code: "CSVRecord.java:130-141",
+      stmt: 'assertEquals("USD", records.get(0).get("currency"));',
+      why: "按名取值正常工作，收尾验证映射有效。",
+      vars: {} },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

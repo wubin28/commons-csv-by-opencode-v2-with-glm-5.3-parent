@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>A4b · 忘设 skip：文件自己的表头行被当作第一条数据（对照） · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← A 组导航</a></div>
+  <header class="page-header">
+    <h1>A4b · 手工表头但忘设 skipHeaderRecord → 文件自己的表头行被当作第一条数据（对照）</h1>
+    <p class="subtitle">HeadersCharacterizationTest.HeaderSources#manualHeaderWithoutSkipReadsFileHeaderLineAsData（:129-134）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件，它的首行恰好写着 <code>id,currency,amount</code>；这里用 <code>new StringReader(csv)</code> 等价扮演——这正是"配置错误事故"最常见的现场。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-a/a4b-manualHeaderWithoutSkipReadsFileHeaderLineAsData.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="a4-manualHeaderWithSkipHeaderRecordSkipsFileHeaderLine-in-sequence-diagram.html">« A4：手工表头 + skip</a>
+    <span class="disabled">A 组最后一个测试 »</span>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "a4b",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据（与A4相同的文件，但忘设skip）
+  Test->>Format: setHeader(id,currency,amount) 不设置 skipHeaderRecord
+  Test->>File: new StringReader(id,currency,amount 1,USD,100)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders() 取出 formatHeader 长度为3
+  Parser->>Parser: 不进入自动探测分支 长度不为0
+  Parser->>Parser: 检查 skipHeaderRecord 这次为 false 不读取文件
+  Parser->>Parser: headerRecord 等于配置数组 formatHeader
+  loop 建立映射 id到0 currency到1 amount到2
+    Parser->>Parser: headerMap.put 写入一个名字到下标
+  end
+  Parser->>File: 关键对照 没有任何代码消费过文件首行 流的读取位置仍停在最开头
+  Test->>Parser: parser.getRecords()
+  Parser->>Lexer: nextToken() 读取流中第一行 恰好是表头文本
+  Lexer->>Lexer: parseSimpleToken 逐字符扫描到逗号
+  Lexer-->>Parser: 返回 TOKEN id
+  Lexer->>Lexer: 继续切出 currency 与 amount EORECORD
+  Parser->>Rec: recordCount为0 把该行当作第1条数据记录
+  loop 第2行 1,USD,100（同样流程，已折叠）
+    Parser->>Rec: 生成第2条记录 1 USD 100
+  end
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 断言 records.size 等于 2
+  Test->>Rec: 断言 get(0) 下标取值等于字符串id
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader(id,currency,amount) 不设置 skipHeaderRecord",
+      code: "HeadersCharacterizationTest.java:130",
+      stmt: 'final CSVFormat format =\n    CSVFormat.DEFAULT.builder().setHeader("id", "currency", "amount").get();',
+      why: "<b>Given</b>：与 A4 用的是<b>完全相同</b>的手工表头配置，唯独<b>没有</b>调用 <code>setSkipHeaderRecord(true)</code>——这是本测试作为\"对照组\"的设计意图。",
+      vars: { format: '手工表头["id","currency","amount"]，skipHeaderRecord=false（默认）' } },
+    { phase: "given", label: "new StringReader(id,currency,amount 1,USD,100)",
+      code: "HeadersCharacterizationTest.java:131",
+      stmt: 'parseRecords(format, "id,currency,amount\\r\\n1,USD,100\\r\\n");',
+      why: "文件内容与 A4 完全一样——首行恰好写着列名。区别只在于配置，不在于数据。",
+      vars: { csv: '"id,currency,amount\\r\\n1,USD,100\\r\\n"' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "进入构造函数，528 行调用 <code>createHeaders()</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders() 取出 formatHeader 长度为3",
+      code: "CSVParser.java:631",
+      stmt: 'final String[] formatHeader = format.getHeader(); // ["id","currency","amount"]',
+      why: "手工配置的三个列名。",
+      vars: { formatHeader: '["id","currency","amount"]' } },
+    { phase: "when", label: "不进入自动探测分支 长度不为0",
+      code: "CSVParser.java:635",
+      stmt: "if (formatHeader.length == 0) { ... } // 条件为假",
+      why: "走向手工表头路径。",
+      vars: {} },
+    { phase: "when", label: "检查 skipHeaderRecord 这次为 false 不读取文件",
+      code: "CSVParser.java:643",
+      stmt: "if (format.getSkipHeaderRecord()) { ... } // false，不进入",
+      why: "<b>这是与 A4 唯一的分支差异</b>：这次条件为假，<code>nextRecord()</code> <b>不会</b>被调用去消费文件首行。",
+      vars: { "format.skipHeaderRecord": "false" } },
+    { phase: "when", label: "headerRecord 等于配置数组 formatHeader",
+      code: "CSVParser.java:649",
+      stmt: "headerRecord = formatHeader;",
+      why: "表头映射照常从配置数组建立——到这一步为止，和 A4 看起来完全一样。",
+      vars: { headerRecord: '["id","currency","amount"]（来自配置）' } },
+    { phase: "when", label: "headerMap.put 写入一个名字到下标",
+      code: "CSVParser.java:672",
+      stmt: "headerMap.put(header, Integer.valueOf(i)); // i=0,1,2",
+      why: "建立映射 id→0、currency→1、amount→2。",
+      vars: { headerMap: "{id=0, currency=1, amount=2}" } },
+    { phase: "when", label: "关键对照 没有任何代码消费过文件首行 流的读取位置仍停在最开头",
+      code: "对照 CSVParser.java:644（A4 执行过这行，本测试没有）",
+      stmt: "// 本测试的构造函数里，644 行 nextRecord() 根本没有被调用过",
+      why: "<b>这是 A4 与 A4b 唯一的事实差异</b>：构造完成后，底层字符流的读取位置<b>仍停在文件最开头</b>，表头行还原样待在那里，没人读过它。",
+      vars: {} },
+    { phase: "when", label: "parser.getRecords()",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "开始惰性读取——但因为流位置停在最开头，第一条读到的就是文件首行本身。",
+      vars: {} },
+    { phase: "when", label: "nextToken() 读取流中第一行 恰好是表头文本",
+      code: "CSVParser.java:253-254, 915 → Lexer.java:256",
+      stmt: 'if (format.useRow(recordCount + 1)) {\n    record = Uncheck.get(CSVParser.this::nextRecord);\n}',
+      why: "下钻到字符级（本页仅展开一次）：<code>CSVRecordIterator</code> 的 <code>recordCount</code> 从 0 开始——第一次读到的就是 <code>id,currency,amount</code> 这一行，它完全不知道\"我看起来像表头\"。",
+      vars: { recordCount: "0（即将读到的是第1条记录）" } },
+    { phase: "when", label: "parseSimpleToken 逐字符扫描到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取 'i' 'd' ',' → isDelimiter(',') 命中",
+      why: "逐字符扫描第一个字段 \"id\"——Lexer 本身没有\"这是表头\"的概念，它只认字符和分隔符。",
+      vars: { "当前字符缓冲": '"id"' } },
+    { phase: "when", label: "返回 TOKEN id",
+      code: "Lexer.java:437",
+      stmt: "token.type = TOKEN; token.content.append(\"id\");",
+      why: "第一个字段切出——内容恰好是字符串 \"id\"，但 Lexer 把它当成普通数据字段。",
+      vars: {} },
+    { phase: "when", label: "继续切出 currency 与 amount EORECORD",
+      code: "Lexer.java:437/475",
+      stmt: "// 重复同样流程，直到 \\r\\n 触发 EORECORD",
+      why: "后两个字段走相同流程，这里折叠。",
+      vars: {} },
+    { phase: "when", label: "recordCount为0 把该行当作第1条数据记录",
+      code: "CSVParser.java:594-602",
+      stmt: 'addRecordValue(...); // ["id","currency","amount"]（被当成数据！）',
+      why: "<b>事故现场</b>：文件自己的表头行被当成了第一条<b>数据</b>记录，values 恰好是 <code>[\"id\",\"currency\",\"amount\"]</code>。",
+      vars: { "records[0].values": '["id","currency","amount"]（文件表头行，被误当数据）' } },
+    { phase: "when", label: "生成第2条记录 1 USD 100",
+      code: "CSVParser.java（同上流程，折叠）",
+      stmt: "// 第二行 1,USD,100 重复同样流程",
+      why: "第二条记录才是真正的业务数据，折叠不展开。",
+      vars: { "records[1].values": '["1","USD","100"]', "records.size": "2" } },
+    { phase: "then", label: "断言 records.size 等于 2",
+      code: "HeadersCharacterizationTest.java:132",
+      stmt: "assertEquals(2, records.size());",
+      why: "<b>Then</b>：比 A4 多出一条——这一条就是误被当成数据的表头行，是\"忘设 skip\"的直接后果。",
+      vars: {} },
+    { phase: "then", label: "断言 get(0) 下标取值等于字符串id",
+      code: "CSVRecord.java:103-105",
+      stmt: 'assertEquals("id", records.get(0).get(0));',
+      why: "第一条记录的第一列取出来就是字符串 <code>\"id\"</code>——铁证：它是数据，不是表头。<b>要点</b>：<code>setRequiredHeaders</code> 这类新校验只能检查\"手工表头自身是否完整\"，<b>救不了</b>这种\"文件首行其实不是你以为的表头\"的配置错误。",
+      vars: {} },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

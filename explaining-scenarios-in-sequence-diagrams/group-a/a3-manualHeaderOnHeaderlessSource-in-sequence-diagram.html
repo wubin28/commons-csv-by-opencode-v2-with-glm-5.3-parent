@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>A3 · 手工指定表头（源数据本身没有表头行） · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← A 组导航</a></div>
+  <header class="page-header">
+    <h1>A3 · 手工指定表头，源数据本身没有表头行</h1>
+    <p class="subtitle">HeadersCharacterizationTest.HeaderSources#manualHeaderOnHeaderlessSource（:109-114）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件，它的首行就已经是数据 <code>1,USD,100</code>（<b>完全没有</b>表头行）；这里用 <code>new StringReader(csv)</code> 等价扮演这样一个文件。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-a/a3-manualHeaderOnHeaderlessSource.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="a2b-autoDetectedHeaderWithoutSkipFlagStillSkipsHeaderLine-in-sequence-diagram.html">« A2b：不带 skip 对照</a>
+    <a href="a4-manualHeaderWithSkipHeaderRecordSkipsFileHeaderLine-in-sequence-diagram.html">A4：手工表头+skip »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "a3",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据（源数据没有表头行）
+  Test->>Format: setHeader(id,currency,amount) 手工数组
+  Test->>File: new StringReader(1,USD,100 2,CNY,200)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders() 取出 formatHeader 长度为3
+  Parser->>Parser: 不进入自动探测分支 长度不为0
+  Parser->>Parser: 检查 skipHeaderRecord 默认为 false 不读取文件
+  Parser->>Parser: headerRecord 直接等于配置数组 formatHeader
+  loop 建立映射 id到0 currency到1 amount到2
+    Parser->>Parser: headerMap.put 写入一个名字到下标
+  end
+  Test->>Parser: parser.getRecords()
+  Parser->>Lexer: nextToken() 读取第一行 也就是第一条数据
+  Lexer->>Lexer: parseSimpleToken 逐字符扫描到逗号
+  Lexer-->>Parser: 返回 TOKEN 1
+  Lexer->>Lexer: 继续切出 USD 与 100 EORECORD
+  Parser->>Rec: 生成第1条记录 1 USD 100
+  loop 第2行 2,CNY,200（同样流程，已折叠）
+    Parser->>Rec: 生成第2条记录 2 CNY 200
+  end
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 断言 records.size 等于 2
+  Test->>Rec: 断言 get currency 按名取值等于 USD
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader(id,currency,amount) 手工数组",
+      code: "HeadersCharacterizationTest.java:110",
+      stmt: 'final CSVFormat format =\n    CSVFormat.DEFAULT.builder().setHeader("id", "currency", "amount").get();',
+      why: "<b>Given</b>：直接把三个列名作为数组传给 <code>setHeader(String...)</code>——这是\"手工表头\"来源，与 A2 的\"自动探测\"是两条不同的链路。",
+      vars: { format: 'setHeader("id","currency","amount")（formatHeader 长度为3）' } },
+    { phase: "given", label: "new StringReader(1,USD,100 2,CNY,200)",
+      code: "HeadersCharacterizationTest.java:111",
+      stmt: 'parseRecords(format, "1,USD,100\\r\\n2,CNY,200\\r\\n");',
+      why: "注意文件内容<b>从第一行就是数据</b>，完全没有一行写着 <code>id,currency,amount</code>——这正是\"手工表头 + 无表头源\"的典型用法。",
+      vars: { csv: '"1,USD,100\\r\\n2,CNY,200\\r\\n"（无表头行）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "进入构造函数，528 行调用 <code>createHeaders()</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders() 取出 formatHeader 长度为3",
+      code: "CSVParser.java:631",
+      stmt: 'final String[] formatHeader = format.getHeader(); // ["id","currency","amount"]',
+      why: "与 A2 的空数组不同，这里是真正配置过的三个列名。",
+      vars: { formatHeader: '["id","currency","amount"]' } },
+    { phase: "when", label: "不进入自动探测分支 长度不为0",
+      code: "CSVParser.java:635",
+      stmt: "if (formatHeader.length == 0) { ... } // 条件为假，不进入",
+      why: "长度为 3，不满足自动探测条件，走向\"手工表头\"这条路径——流程里不会调用 <code>nextRecord()</code> 去读文件首行。",
+      vars: {} },
+    { phase: "when", label: "检查 skipHeaderRecord 默认为 false 不读取文件",
+      code: "CSVParser.java:643",
+      stmt: "if (format.getSkipHeaderRecord()) { ... } // false，不进入",
+      why: "本测试没调用 <code>setSkipHeaderRecord</code>，默认值 <code>false</code>——不会消费文件的任何一行。因为文件本来就没有表头行，这正是期望的行为。",
+      vars: { "format.skipHeaderRecord": "false" } },
+    { phase: "when", label: "headerRecord 直接等于配置数组 formatHeader",
+      code: "CSVParser.java:649",
+      stmt: "headerRecord = formatHeader;",
+      why: "手工表头<b>直接把配置数组当成表头记录</b>，完全不涉及文件内容——这是 A3 最核心的事实。",
+      vars: { headerRecord: '["id","currency","amount"]（来自配置，非文件）' } },
+    { phase: "when", label: "headerMap.put 写入一个名字到下标",
+      code: "CSVParser.java:672",
+      stmt: "headerMap.put(header, Integer.valueOf(i)); // i=0,1,2",
+      why: "建立 id→0、currency→1、amount→2 映射。",
+      vars: { headerMap: "{id=0, currency=1, amount=2}" } },
+    { phase: "when", label: "parser.getRecords()",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "表头已经定案（且与文件内容无关），现在开始惰性读取数据——文件里第一行就是第一条数据。",
+      vars: {} },
+    { phase: "when", label: "nextToken() 读取第一行 也就是第一条数据",
+      code: "CSVParser.java:915 → Lexer.java:256",
+      stmt: "// nextRecord() 驱动 lexer.nextToken()",
+      why: "与前面测试不同：这次读到的<b>第一行就是数据</b>，不是表头——因为表头根本没有占用流中的任何一行。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken 逐字符扫描到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取 '1' ',' → isDelimiter(',') 命中",
+      why: "下钻到字符级（本页仅展开一次）：扫描第一个字段 \"1\"。",
+      vars: { "当前字符缓冲": '"1"' } },
+    { phase: "when", label: "返回 TOKEN 1",
+      code: "Lexer.java:437",
+      stmt: "token.type = TOKEN; token.content.append(\"1\");",
+      why: "第一个字段切出。",
+      vars: {} },
+    { phase: "when", label: "继续切出 USD 与 100 EORECORD",
+      code: "Lexer.java:437/475",
+      stmt: "// 重复同样流程，直到 \\r\\n 触发 EORECORD",
+      why: "后两个字段走相同流程，这里折叠。",
+      vars: {} },
+    { phase: "when", label: "生成第1条记录 1 USD 100",
+      code: "CSVParser.java:594-602",
+      stmt: 'addRecordValue(...); // ["1","USD","100"]',
+      why: "第一条<b>数据</b>记录生成，values 数组对应配置的 headerMap。",
+      vars: { "records[0].values": '["1","USD","100"]' } },
+    { phase: "when", label: "生成第2条记录 2 CNY 200",
+      code: "CSVParser.java（同上流程，折叠）",
+      stmt: "// 第二行同样流程",
+      why: "折叠不再展开。",
+      vars: { "records[1].values": '["2","CNY","200"]', "records.size": "2" } },
+    { phase: "then", label: "断言 records.size 等于 2",
+      code: "HeadersCharacterizationTest.java:112",
+      stmt: "assertEquals(2, records.size());",
+      why: "<b>Then</b>：两条数据记录，与文件两行完全对应（没有任何一行被当成表头吃掉）。",
+      vars: {} },
+    { phase: "then", label: "断言 get currency 按名取值等于 USD",
+      code: "CSVRecord.java:130-141",
+      stmt: 'assertEquals("USD", records.get(0).get("currency"));',
+      why: "手工配置的表头同样支持按名取值。",
+      vars: {} },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>
