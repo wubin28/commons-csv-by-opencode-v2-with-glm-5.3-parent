@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>D1 · 表头名带前后空白 → 精确匹配不 trim · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← D 组导航</a></div>
+  <header class="page-header">
+    <h1>D1 · 表头名带前后空白 → key 原样保留，精确匹配不 trim</h1>
+    <p class="subtitle">HeadersCharacterizationTest.RequirementAdjacent#headerNameWithSurroundingSpacesNeedsExactMatch（:260-267）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件，它的首行会原样写着 <code>id, currency ,amount</code>（<code>currency</code> 前后各有一个真实的空格字符，不是排版误差）；
+    这里用 <code>new StringReader(csv)</code> 等价地扮演该文件角色。<br />
+    本页时序图里用可见的 <code>·</code> 标记代表半角空格（例如 <code>·currency·</code> = 真实字符串是 <code>" currency "</code>），避免被页面排版悄悄吃掉——这是本场景的全部意义所在，请特别留意。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-d/d1-headerNameWithSurroundingSpacesNeedsExactMatch.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <span class="disabled">« 已是 D 组第一个测试</span>
+    <a href="d2-manualHeaderBindsPositionsNotFileHeaderText-in-sequence-diagram.html">D2：手工表头绑定位置 »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "d1",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据（表头第二列故意带前后空格）
+  Test->>Format: setHeader() 无参 加 setSkipHeaderRecord(true)
+  Test->>File: new StringReader(id,·currency·,amount 1,USD,100)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders() 取出 formatHeader 长度为0
+  Parser->>Parser: 走自动探测分支 表头来自文件首行
+  Parser->>Lexer: nextToken() 读取首行 id 字段 遇逗号结束
+  Lexer-->>Parser: 返回 TOKEN id
+  Parser->>Lexer: nextToken() 继续读取第二个字段
+  Lexer->>Lexer: parseSimpleToken 逐字符累加 空格 c u r r e n c y 空格
+  Lexer-->>Parser: 返回 TOKEN ·currency·（注意两侧各保留一个空格 未trim）
+  Lexer->>Lexer: 继续切出 amount 字段 遇到CRLF触发EORECORD
+  Parser->>Parser: 首行被当场消费 headerRecord 等于该行值
+  Parser->>Parser: isBlank(·currency·) 返回false 走正常列名分支
+  loop 建立映射 循环三次
+    Parser->>Parser: headerMap.put 写入 id 到下标0
+    Parser->>Parser: headerMap.put 写入 ·currency·（带空格原样）到下标1
+    Parser->>Parser: headerMap.put 写入 amount 到下标2
+  end
+  Test->>Parser: parser.getRecords()
+  Parser->>Rec: 生成唯一记录 1 USD 100
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 调用 get(·currency·)（带空格 与key精确相同）
+  Rec->>Rec: headerMap.get(·currency·) 命中下标1
+  Rec-->>Test: 返回 USD 断言通过
+  Test->>Rec: 调用 get(currency)（不带空格）
+  Rec->>Rec: headerMap.get(currency) 返回null 因为key是带空格的
+  Rec-->>Test: 抛出 IllegalArgumentException Mapping for currency not found
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader() 无参 加 setSkipHeaderRecord(true)",
+      code: "HeadersCharacterizationTest.java:51-53",
+      stmt: 'private static CSVFormat headerFromFirstRecord() {\n  return CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).get();\n}',
+      why: "<b>Given</b>：复用 A2a 同款格式——自动探测首行为表头，并跳过该行。<code>CSVFormat.DEFAULT</code> 的 <code>trim</code> 与 <code>ignoreSurroundingSpaces</code> 都是 <code>false</code>（这是本场景成立的前提）。",
+      vars: { format: "setHeader()（空数组，自动探测）+ setSkipHeaderRecord(true)" } },
+    { phase: "given", label: "new StringReader(id,·currency·,amount 1,USD,100)",
+      code: "HeadersCharacterizationTest.java:262",
+      stmt: 'parseRecords(headerFromFirstRecord(), "id, currency ,amount\\r\\n1,USD,100\\r\\n");',
+      why: "文件首行是 <code>id, currency ,amount</code>——<b>第二个字段 <code>currency</code> 前后各有一个真实空格</b>（图中用 <code>·</code> 标出），这是本场景故意设置的边界条件，不是笔误。",
+      vars: { csv: '"id, currency ,amount\\r\\n1,USD,100\\r\\n"（第二个字段两侧各有一个空格）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "进入构造函数，528 行会立刻调用 <code>createHeaders()</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders() 取出 formatHeader 长度为0",
+      code: "CSVParser.java:631",
+      stmt: "final String[] formatHeader = format.getHeader(); // String[0]",
+      why: "长度为 0，触发自动探测分支——表头将逐字符从文件首行真实读出，<b>不会</b>经过任何 trim 处理。",
+      vars: { formatHeader: "String[0]（长度为0）" } },
+    { phase: "when", label: "走自动探测分支 表头来自文件首行",
+      code: "CSVParser.java:635-639",
+      stmt: "if (formatHeader.length == 0) { final CSVRecord nextRecord = nextRecord(); headerRecord = nextRecord.values(); }",
+      why: "表头世界即将由 Lexer 对首行的真实切分结果决定——这正是空格能不能被保留的关键一步。",
+      vars: {} },
+    { phase: "when", label: "nextToken() 读取首行 id 字段 遇逗号结束",
+      code: "Lexer.java:256,437",
+      stmt: "// 逐字符读取 'i' 'd' ',' → isDelimiter(',') 命中",
+      why: "第一个字段 <code>id</code> 不含空格，按常规流程切出。",
+      vars: {} },
+    { phase: "when", label: "返回 TOKEN id",
+      code: "Lexer.java:437",
+      stmt: "token.type = TOKEN; token.content.append(\"id\");",
+      why: "第一个表头字段确定。",
+      vars: {} },
+    { phase: "when", label: "nextToken() 继续读取第二个字段",
+      code: "Lexer.java:256,437",
+      stmt: "// 开始扫描第二个字段，起始字符就是一个空格",
+      why: "<b>本页唯一一次字符级展开，就在这里</b>：第二个字段从一个空格字符开始。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken 逐字符累加 空格 c u r r e n c y 空格",
+      code: "Lexer.java:437",
+      stmt: "token.content.append(' ').append('c').append('u')...append('y').append(' '); // 遇到下一个逗号才停",
+      why: "<code>DEFAULT</code> 格式没有开启 <code>ignoreSurroundingSpaces</code>，Lexer 把两侧的空格字符原样累加进 token 内容，<b>不做任何裁剪</b>——这是 trim 与否的真正分叉点。",
+      vars: { "当前字段缓冲": '" currency "（前后各一个空格，长度11）' } },
+    { phase: "when", label: "返回 TOKEN ·currency·（注意两侧各保留一个空格 未trim）",
+      code: "Lexer.java:437",
+      stmt: "token.type = TOKEN; // token.content.toString() == \" currency \"",
+      why: "切出的字段值就是 <code>\" currency \"</code>——与断言里将来要用的 <code>\" currency \"</code>（带空格）是同一个字符串，而不是视觉上相似的两个不同字符串。",
+      vars: { "第二个字段": '" currency "（带空格，与不带空格的 "currency" 是两个不同的字符串）' } },
+    { phase: "when", label: "继续切出 amount 字段 遇到CRLF触发EORECORD",
+      code: "Lexer.java:437,475",
+      stmt: "// 第三个字段 amount 不含空格，遇 \\r\\n 触发 EORECORD",
+      why: "第三个字段走常规流程，这里折叠不再展开。",
+      vars: { "nextRecord.values": '["id", " currency ", "amount"]' } },
+    { phase: "when", label: "首行被当场消费 headerRecord 等于该行值",
+      code: "CSVParser.java:639",
+      stmt: "headerRecord = nextRecord.values();",
+      why: "<code>headerRecord</code> 的第二个元素就是带空格的 <code>\" currency \"</code>，即将原样进入 <code>headerMap</code>。",
+      vars: { headerRecord: '["id", " currency ", "amount"]' } },
+    { phase: "when", label: "isBlank(·currency·) 返回false 走正常列名分支",
+      code: "CSVFormat.java:1480",
+      stmt: "static boolean isBlank(final String value) { return value == null || value.trim().isEmpty(); }",
+      why: "<code>isBlank</code> 内部确实会 <code>trim()</code>，但那只是用来<b>判断</b>这一列是不是空白列名（结果是 false，不是空白列）——判断之后真正 <code>put</code> 进 <code>headerMap</code> 的仍然是<b>未经 trim 的原始字符串</b> <code>\" currency \"</code>。",
+      vars: { "isBlank(\" currency \")": "false（trim 后非空，判定为正常列名）" } },
+    { phase: "when", label: "headerMap.put 写入 id 到下标0",
+      code: "CSVParser.java:672",
+      stmt: "headerMap.put(header, Integer.valueOf(i)); // i=0, header=\"id\"",
+      why: "第一列照常映射。",
+      vars: {} },
+    { phase: "when", label: "headerMap.put 写入 ·currency·（带空格原样）到下标1",
+      code: "CSVParser.java:672",
+      stmt: 'headerMap.put(header, Integer.valueOf(i)); // i=1, header=" currency "（带空格）',
+      why: "<b>这是本场景的核心一步</b>：写入 <code>headerMap</code> 的 key 是带两侧空格的 <code>\" currency \"</code>，不是不带空格的 <code>\"currency\"</code>——两者是两个不同的字符串对象内容。",
+      vars: { headerMap: '{"id"=0, " currency "=1}（注意第二个key两侧有空格）' } },
+    { phase: "when", label: "headerMap.put 写入 amount 到下标2",
+      code: "CSVParser.java:672",
+      stmt: "headerMap.put(header, Integer.valueOf(i)); // i=2, header=\"amount\"",
+      why: "第三列照常映射，三列全部完成。",
+      vars: { headerMap: '{"id"=0, " currency "=1, "amount"=2}' } },
+    { phase: "when", label: "parser.getRecords()",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "表头世界已定案（key 带空格），现在才开始读数据行。",
+      vars: {} },
+    { phase: "when", label: "生成唯一记录 1 USD 100",
+      code: "CSVParser.java:594-602,915",
+      stmt: 'addRecordValue(...); // ["1","USD","100"]',
+      why: "数据行与表头解析流程相同（这里折叠不重复展开），唯一一条记录生成，持有同一个 <code>headerMap</code> 引用。",
+      vars: { "records[0].values": '["1","USD","100"]', "records.size": "1" } },
+    { phase: "then", label: "调用 get(·currency·)（带空格 与key精确相同）",
+      code: "HeadersCharacterizationTest.java:263",
+      stmt: 'assertEquals("USD", records.get(0).get(" currency "));',
+      why: "<b>Then（第一个断言）</b>：这里传入的字符串字面量 <code>\" currency \"</code> 两侧也带空格，与 <code>headerMap</code> 里的 key 逐字符完全相同。",
+      vars: {} },
+    { phase: "then", label: "headerMap.get(·currency·) 命中下标1",
+      code: "CSVRecord.java:130-134",
+      stmt: 'final Integer index = headerMap.get(" currency "); // 命中，index=1',
+      why: "字符串精确匹配成功，取到下标 1。",
+      vars: {} },
+    { phase: "then", label: "返回 USD 断言通过",
+      code: "CSVRecord.java:136",
+      stmt: 'return values[1]; // "USD"',
+      why: "断言 <code>\"USD\".equals(...)</code> 通过——带空格的查询命中了带空格的 key。",
+      vars: {} },
+    { phase: "then", label: "调用 get(currency)（不带空格）",
+      code: "HeadersCharacterizationTest.java:264-266",
+      stmt: 'assertThrows(IllegalArgumentException.class, () -> records.get(0).get("currency"));',
+      why: "<b>Then（第二个断言）</b>：这次传入的是不带空格的 <code>\"currency\"</code>——与上一步传入的 <code>\" currency \"</code> 是两个不同的字符串。",
+      vars: {} },
+    { phase: "then", label: "headerMap.get(currency) 返回null 因为key是带空格的",
+      code: "CSVRecord.java:133",
+      stmt: 'final Integer index = headerMap.get("currency"); // null',
+      why: "<code>headerMap</code> 里从来没有不带空格的 <code>\"currency\"</code> 这个 key——只有带空格的 <code>\" currency \"</code>。这就是「现状不对将来 required 匹配做 trim」会造成的真实后果：这是现状，不是本次要改的行为。",
+      vars: { "headerMap.get(\"currency\")": "null（key 带空格，查询不带空格，精确匹配失败）" } },
+    { phase: "then", label: "抛出 IllegalArgumentException Mapping for currency not found",
+      code: "CSVRecord.java:134-135",
+      stmt: 'throw new IllegalArgumentException(String.format(\n    "Mapping for %s not found, expected one of %s", name, headerMap.keySet()));',
+      why: "异常信息里的 <code>expected one of</code> 后面会把 <code>headerMap.keySet()</code> 原样打印出来——仔细看就能看到那个带空格的 key，这正是排查这类问题的线索。",
+      vars: { "e.getMessage()": '包含 "Mapping for currency not found"（keySet 中实际是带空格的 " currency "）' } },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

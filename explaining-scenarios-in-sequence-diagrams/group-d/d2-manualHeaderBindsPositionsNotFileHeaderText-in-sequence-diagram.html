@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>D2 · 手工表头绑定的是位置，不认文件首行文本 · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← D 组导航</a></div>
+  <header class="page-header">
+    <h1>D2 · 手工表头绑定的是"位置"，与文件首行写了什么无关</h1>
+    <p class="subtitle">HeadersCharacterizationTest.RequirementAdjacent#manualHeaderBindsPositionsNotFileHeaderText（:271-280）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件，它的首行会原样写着 <code>id,currency,amount</code>（与手工表头 <code>colX,currency,amount</code> 故意只在第一列不同）；
+    这里用 <code>new StringReader(csv)</code> 等价地扮演该文件角色。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-d/d2-manualHeaderBindsPositionsNotFileHeaderText.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="d1-headerNameWithSurroundingSpacesNeedsExactMatch-in-sequence-diagram.html">« D1：表头名带空格</a>
+    <span class="disabled">已是 D 组最后一个测试 »</span>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "d2",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据（手工表头第一列名与文件首行第一列名故意不同）
+  Test->>Format: setHeader(colX,currency,amount) 加 setSkipHeaderRecord(true)
+  Test->>File: new StringReader(id,currency,amount 1,USD,100)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders() 取出 formatHeader 长度为3
+  Parser->>Parser: 不进入自动探测分支 长度不为0
+  Parser->>Parser: 检查 skipHeaderRecord 这次为 true
+  Parser->>Lexer: nextToken() 读取并丢弃文件首行 id,currency,amount
+  Lexer->>Lexer: parseSimpleToken 逐字符扫描到逗号
+  Lexer-->>Parser: 返回 TOKEN id
+  Lexer->>Lexer: 继续切出 currency 与 amount EORECORD
+  Parser->>Parser: 该条记录被整体丢弃 返回值无人使用
+  Parser->>Parser: headerRecord 依然等于配置数组colX currency amount 与文件首行无关
+  loop 建立映射 循环三次
+    Parser->>Parser: headerMap.put 写入 colX 到下标0（配置数组的名字 不是文件里的id）
+    Parser->>Parser: headerMap.put 写入 currency 到下标1
+    Parser->>Parser: headerMap.put 写入 amount 到下标2
+  end
+  Test->>Parser: parser.getRecords()
+  Parser->>Lexer: nextToken() 读取剩下唯一一行数据
+  Lexer->>Lexer: 逐字符切出 1 USD 100 三个字段
+  Parser->>Rec: 生成唯一记录 1 USD 100
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 调用 get(colX) 取第一列
+  Rec->>Rec: headerMap.get(colX) 命中下标0
+  Rec-->>Test: 返回 1 断言通过
+  Test->>Rec: 调用 get(currency) 取第二列
+  Rec-->>Test: 返回 USD 断言通过
+  Test->>Parser: 另开一次 format.parse 验证 headerMap
+  Test->>Parser: 断言 getHeaderMap().get(colX) 等于下标0
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader(colX,currency,amount) 加 setSkipHeaderRecord(true)",
+      code: "HeadersCharacterizationTest.java:272-273",
+      stmt: 'final CSVFormat format = CSVFormat.DEFAULT.builder().setHeader("colX", "currency", "amount")\n    .setSkipHeaderRecord(true).get();',
+      why: "<b>Given</b>：手工表头的第一列名是 <code>colX</code>，而待会要解析的文件首行第一列名是 <code>id</code>——两者<b>列名不同但列数相同</b>，这是本场景故意设计的关键差异（对照 A4：A4 里配置数组与文件首行文本碰巧相同）。",
+      vars: { format: '手工表头["colX","currency","amount"] + skipHeaderRecord=true' } },
+    { phase: "given", label: "new StringReader(id,currency,amount 1,USD,100)",
+      code: "HeadersCharacterizationTest.java:274",
+      stmt: 'parseRecords(format, "id,currency,amount\\r\\n1,USD,100\\r\\n");',
+      why: "文件首行写的是 <code>id,currency,amount</code>——第一列是 <code>id</code>，接下来会看到这个 <code>id</code> 从头到尾没有被用来做过任何映射。",
+      vars: { csv: '"id,currency,amount\\r\\n1,USD,100\\r\\n"（第一列是 id，与配置数组的 colX 不同）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "进入构造函数，528 行调用 <code>createHeaders()</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders() 取出 formatHeader 长度为3",
+      code: "CSVParser.java:631",
+      stmt: 'final String[] formatHeader = format.getHeader(); // ["colX","currency","amount"]',
+      why: "手工配置的三个列名，第一个是 <code>colX</code>，与文件首行的 <code>id</code> 毫无关系。",
+      vars: { formatHeader: '["colX","currency","amount"]' } },
+    { phase: "when", label: "不进入自动探测分支 长度不为0",
+      code: "CSVParser.java:635",
+      stmt: "if (formatHeader.length == 0) { ... } // 条件为假",
+      why: "走手工表头路径，表头的候选值此刻已经是配置数组，而不是等待从文件里读。",
+      vars: {} },
+    { phase: "when", label: "检查 skipHeaderRecord 这次为 true",
+      code: "CSVParser.java:643",
+      stmt: "if (format.getSkipHeaderRecord()) { // 条件为真",
+      why: "<code>skipHeaderRecord=true</code>，意味着文件首行<b>会被读取</b>——但读取和\"参与映射\"是两件独立的事，下一步开始能看清楚。",
+      vars: {} },
+    { phase: "when", label: "nextToken() 读取并丢弃文件首行 id,currency,amount",
+      code: "CSVParser.java:644",
+      stmt: "final CSVRecord nextRecord = nextRecord(); // 读到的记录直接丢弃，返回值未被赋给 headerRecord",
+      why: "这是<b>本页第一次真正读到的一行</b>：Lexer 确实把 <code>id,currency,amount</code> 这一行从流中读掉了，但它的切分结果不会流入 <code>headerMap</code>。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken 逐字符扫描到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取 'i' 'd' ',' → isDelimiter(',') 命中",
+      why: "字符级切分照常发生（本页仅在此展开一次），只是切出来的结果马上被扔掉。",
+      vars: { "当前字符缓冲": '"id"' } },
+    { phase: "when", label: "返回 TOKEN id",
+      code: "Lexer.java:437",
+      stmt: "token.type = TOKEN; token.content.append(\"id\");",
+      why: "第一个字段 <code>id</code> 切出——这是文件里唯一一次出现 <code>id</code> 这个文本，之后它再也不会被用到。",
+      vars: {} },
+    { phase: "when", label: "继续切出 currency 与 amount EORECORD",
+      code: "Lexer.java:437/475",
+      stmt: "// 重复同样流程，直到 \\r\\n 触发 EORECORD",
+      why: "后两个字段走相同流程，这里折叠不再展开。",
+      vars: { "nextRecord.values": '["id","currency","amount"]（切出来了，但下一步会看到没人用它）' } },
+    { phase: "when", label: "该条记录被整体丢弃 返回值无人使用",
+      code: "CSVParser.java:644-646",
+      stmt: "final CSVRecord nextRecord = nextRecord();\nif (nextRecord != null) { headerComment = nextRecord.getComment(); } // 只取了注释，没取 values()",
+      why: "644 行拿到的 <code>nextRecord</code> 只被用来取 <code>headerComment</code>，<code>nextRecord.values()</code>（也就是文件首行的 <code>[\"id\",\"currency\",\"amount\"]</code>）<b>从未被读取或赋值给任何变量</b>——这是\"文件首行文本不参与映射\"的真正证据。",
+      vars: {} },
+    { phase: "when", label: "headerRecord 依然等于配置数组colX currency amount 与文件首行无关",
+      code: "CSVParser.java:649",
+      stmt: "headerRecord = formatHeader; // [\"colX\",\"currency\",\"amount\"]",
+      why: "<b>这是本场景的核心一步</b>：真正用来建立 <code>headerMap</code> 的 <code>headerRecord</code> 来自配置数组 <code>formatHeader</code>，第一个元素是 <code>colX</code>，不是文件首行写的 <code>id</code>。",
+      vars: { headerRecord: '["colX","currency","amount"]（来自配置，与刚丢弃的文件首行["id","currency","amount"]是两个不同的数组）' } },
+    { phase: "when", label: "headerMap.put 写入 colX 到下标0（配置数组的名字 不是文件里的id）",
+      code: "CSVParser.java:672",
+      stmt: 'headerMap.put(header, Integer.valueOf(i)); // i=0, header="colX"',
+      why: "<code>headerMap</code> 的第一个 key 是 <code>colX</code>——文件里那个 <code>id</code> 自始至终没有机会成为任何 key。",
+      vars: { headerMap: '{"colX"=0}' } },
+    { phase: "when", label: "headerMap.put 写入 currency 到下标1",
+      code: "CSVParser.java:672",
+      stmt: 'headerMap.put(header, Integer.valueOf(i)); // i=1, header="currency"',
+      why: "第二列 <code>currency</code> 在配置数组和文件首行里文本相同，这里只是巧合，不影响结论。",
+      vars: { headerMap: '{"colX"=0, "currency"=1}' } },
+    { phase: "when", label: "headerMap.put 写入 amount 到下标2",
+      code: "CSVParser.java:672",
+      stmt: 'headerMap.put(header, Integer.valueOf(i)); // i=2, header="amount"',
+      why: "三列映射全部建立完毕，全部来自配置数组。",
+      vars: { headerMap: '{"colX"=0, "currency"=1, "amount"=2}' } },
+    { phase: "when", label: "parser.getRecords()",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "文件首行已经被消费掉，流里只剩下一行数据。",
+      vars: {} },
+    { phase: "when", label: "nextToken() 读取剩下唯一一行数据",
+      code: "CSVParser.java:915 → Lexer.java:256",
+      stmt: "// nextRecord() 驱动 lexer.nextToken()，开始读第二行",
+      why: "开始读流里剩下的唯一一行 <code>1,USD,100</code>。",
+      vars: {} },
+    { phase: "when", label: "逐字符切出 1 USD 100 三个字段",
+      code: "Lexer.java:437/475（流程与上面相同，折叠）",
+      stmt: "// 重复与首行相同的逐字符扫描流程，这里不再展开",
+      why: "数据行的切分流程与首行完全相同，不再重复展开字符细节。",
+      vars: {} },
+    { phase: "when", label: "生成唯一记录 1 USD 100",
+      code: "CSVParser.java:594-602",
+      stmt: 'addRecordValue(...); // ["1","USD","100"]',
+      why: "唯一一条数据记录生成，持有的是来自配置数组的 <code>headerMap</code>。",
+      vars: { "records[0].values": '["1","USD","100"]', "records.size": "1" } },
+    { phase: "then", label: "调用 get(colX) 取第一列",
+      code: "HeadersCharacterizationTest.java:275",
+      stmt: 'assertEquals("1", records.get(0).get("colX"));',
+      why: "<b>Then（第一个断言）</b>：用配置数组里的名字 <code>colX</code> 去取值——能取到，说明映射确实绑定在\"位置0\"上，而不是文件首行写的任何文本。",
+      vars: {} },
+    { phase: "then", label: "headerMap.get(colX) 命中下标0",
+      code: "CSVRecord.java:130-134",
+      stmt: 'final Integer index = headerMap.get("colX"); // 命中，index=0',
+      why: "精确匹配成功，取到下标 0。",
+      vars: {} },
+    { phase: "then", label: "返回 1 断言通过",
+      code: "CSVRecord.java:136",
+      stmt: 'return values[0]; // "1"',
+      why: "断言通过——<b>文件里写的 \"id\" 这个文本从头到尾没有被用来做过任何映射</b>，真正决定\"第一列叫什么\"的是配置数组里的 <code>colX</code>。",
+      vars: {} },
+    { phase: "then", label: "调用 get(currency) 取第二列",
+      code: "HeadersCharacterizationTest.java:276",
+      stmt: 'assertEquals("USD", records.get(0).get("currency"));',
+      why: "第二列名字在配置数组和文件首行里恰好都是 <code>currency</code>，取值照常成功。",
+      vars: {} },
+    { phase: "then", label: "返回 USD 断言通过",
+      code: "CSVRecord.java:130-141",
+      stmt: 'return values[1]; // "USD"',
+      why: "第二个断言通过。",
+      vars: {} },
+    { phase: "then", label: "另开一次 format.parse 验证 headerMap",
+      code: "HeadersCharacterizationTest.java:277",
+      stmt: 'try (CSVParser parser = format.parse(new StringReader("id,currency,amount\\r\\n1,USD,100\\r\\n"))) {',
+      why: "测试额外开了第二次 <code>parse</code>（如实画出，未合并，对照 A2a 同样的写法），直接验证表头映射本身而不经过 <code>CSVRecord</code>。",
+      vars: {} },
+    { phase: "then", label: "断言 getHeaderMap().get(colX) 等于下标0",
+      code: "HeadersCharacterizationTest.java:278",
+      stmt: "assertEquals(Integer.valueOf(0), parser.getHeaderMap().get(\"colX\"));",
+      why: "再次确认：<code>headerMap</code> 里确确实实是 <code>colX → 0</code>，与文件首行写了什么无关——这正是「手工表头绑定的是位置，不是文件首行写的文本」这一现状最直接的证据（对照 A4）。",
+      vars: { "parser2.getHeaderMap().get(\"colX\")": "0" } },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

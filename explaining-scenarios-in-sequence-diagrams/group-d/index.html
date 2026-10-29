@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>D 组 · HeadersCharacterizationTest 时序图导航</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --panel-bg: #ffffff; --border: #d8dee6; --text: #1f2430;
+    --text-dim: #5b6472; --accent: #2f6fed; --accent-soft: #e8f0ff;
+    --given: #2f9e44; --when: #e8590c; --then: #9c36b5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 28px 24px 60px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p.lead { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin-top: 0; }
+  .legend { display: flex; gap: 10px; margin: 14px 0 22px; font-size: 12.5px; }
+  .legend span { padding: 2px 8px; border-radius: 999px; color: #fff; }
+  .legend .given { background: var(--given); }
+  .legend .when { background: var(--when); }
+  .legend .then { background: var(--then); }
+  .card-list { display: flex; flex-direction: column; gap: 12px; }
+  .card {
+    display: block; background: var(--panel-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; text-decoration: none; color: var(--text);
+  }
+  .card:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .card .id { font-weight: 700; color: var(--accent); margin-right: 8px; }
+  .card .title { font-weight: 600; }
+  .card .desc { display: block; margin-top: 4px; font-size: 13px; color: var(--text-dim); }
+  .card .meta { display: block; margin-top: 6px; font-size: 12px; color: var(--text-dim); font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .card .star { color: #e8590c; font-weight: 700; }
+  .footer-note {
+    margin-top: 28px; font-size: 13px; color: var(--text-dim);
+    background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  }
+  .footer-note a { color: var(--accent); }
+  .crumbs { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
+  .crumbs a { color: var(--accent); text-decoration: none; }
+  .crumbs a:hover { text-decoration: underline; }
+  .pair-note {
+    font-size: 12.5px; color: var(--text-dim); margin: -4px 0 4px 2px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumbs"><a href="../group-c/index.html">← 上一组：C 组导航</a></div>
+  <h1>D 组 · 将来 required 匹配必须显式决策的语义边界</h1>
+  <p class="lead">
+    以下 2 个页面用可逐步播放的 UML 时序图，重新讲解
+    <code>HeadersCharacterizationTest.RequirementAdjacent</code> 的 2 个测试用例：它们钉住了将来
+    <code>setRequiredHeaders(String...)</code> 落地时必须显式回答的两个匹配语义问题——表头名带前后空白
+    要不要 trim（D1），以及手工表头到底绑定"位置"还是"文件首行写的文本"（D2）。场景编号对应
+    <code>ch02-1-2-scenarios-for-warming-up.md</code> 的 D 组，单步调试要点对应
+    <code>ch02-1-3-debug-guide.md</code> 的 D 组部分。D 组是本次热身 4 组测试里的最后一组。
+  </p>
+  <div class="legend">
+    <span class="given">Given</span>
+    <span class="when">When</span>
+    <span class="then">Then</span>
+  </div>
+
+  <div class="card-list">
+    <a class="card" href="d1-headerNameWithSurroundingSpacesNeedsExactMatch-in-sequence-diagram.html">
+      <span class="id">D1</span><span class="title">表头名带前后空白 → key 原样保留，精确匹配不 trim</span>
+      <span class="desc">自动探测的表头第二列是 " currency "（带空格）；get(" currency ") 命中，不带空格的 get("currency") 抛 IllegalArgumentException——现状是精确匹配，不是 trim 后匹配。</span>
+      <span class="meta">headerNameWithSurroundingSpacesNeedsExactMatch（:260-267）</span>
+    </a>
+    <a class="card" href="d2-manualHeaderBindsPositionsNotFileHeaderText-in-sequence-diagram.html">
+      <span class="id">D2</span><span class="title">手工表头绑定的是"位置"，与文件首行写了什么无关</span>
+      <span class="desc">手工表头 colX,currency,amount 与文件首行 id,currency,amount 第一列名不同；skip 读取并丢弃文件首行，但映射只来自配置数组——文件里的 "id" 从未参与映射。</span>
+      <span class="meta">manualHeaderBindsPositionsNotFileHeaderText（:271-280）</span>
+    </a>
+    <p class="pair-note">↑ D1 / D2 共同证明：现状的"名字相等"判定是精确字符串比较（不 trim、只认实际建立映射的来源），这正是将来 <code>requiredHeaders</code> 做匹配时必须显式决策、不能想当然的边界。</p>
+  </div>
+
+  <div class="footer-note">
+    每个页面都支持：←/→ 单步播放、自动播放（可调速）、跳到 Given/When/Then、导出整图 PNG/PDF、
+    导出当前步 PNG、按 <code>P</code> 键切换 16:9 演示模式（用于录屏/讲课）。<br />
+    这批页面是时序可视化版本，文字讲解版本见
+    <a href="../../explaining-scenarios-in-html/group-d/index.html">explaining-scenarios-in-html/group-d/</a>（互为补充，不互相替代）。
+  </div>
+</div>
+</body>
+</html>
