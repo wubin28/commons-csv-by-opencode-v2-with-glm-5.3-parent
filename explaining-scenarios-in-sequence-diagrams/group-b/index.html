@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>B 组 · HeadersCharacterizationTest 时序图导航</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --panel-bg: #ffffff; --border: #d8dee6; --text: #1f2430;
+    --text-dim: #5b6472; --accent: #2f6fed; --accent-soft: #e8f0ff;
+    --given: #2f9e44; --when: #e8590c; --then: #9c36b5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 28px 24px 60px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p.lead { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin-top: 0; }
+  .legend { display: flex; gap: 10px; margin: 14px 0 22px; font-size: 12.5px; }
+  .legend span { padding: 2px 8px; border-radius: 999px; color: #fff; }
+  .legend .given { background: var(--given); }
+  .legend .when { background: var(--when); }
+  .legend .then { background: var(--then); }
+  .card-list { display: flex; flex-direction: column; gap: 12px; }
+  .card {
+    display: block; background: var(--panel-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; text-decoration: none; color: var(--text);
+  }
+  .card:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .card .id { font-weight: 700; color: var(--accent); margin-right: 8px; }
+  .card .title { font-weight: 600; }
+  .card .desc { display: block; margin-top: 4px; font-size: 13px; color: var(--text-dim); }
+  .card .meta { display: block; margin-top: 6px; font-size: 12px; color: var(--text-dim); font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .footer-note {
+    margin-top: 28px; font-size: 13px; color: var(--text-dim);
+    background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  }
+  .footer-note a { color: var(--accent); }
+  .crumbs { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
+  .crumbs a { color: var(--accent); text-decoration: none; }
+  .crumbs a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumbs"><a href="../group-a/index.html">← 上一组：A 组导航</a></div>
+  <h1>B 组 · 按列名取值的边界</h1>
+  <p class="lead">
+    以下 5 个页面用可逐步播放的 UML 时序图，重新讲解
+    <code>HeadersCharacterizationTest.NameAccessBoundaries</code> 的 5 个测试用例：取不存在的列名、
+    表头比数据长 / 短、仅表头行、完全空文件。每个场景都从一个"虚拟 CSV 文件"
+    （<code>new StringReader(csv)</code>）开场，按 Given 准备数据、When 调用待测行为、Then 断言结果
+    逐步展开，并在该页第一次真正读到数据的那一行展开一次 <code>Lexer</code> 字符级细节。
+  </p>
+  <div class="legend">
+    <span class="given">Given</span>
+    <span class="when">When</span>
+    <span class="then">Then</span>
+  </div>
+
+  <div class="card-list">
+    <a class="card" href="b1-getByNameWithUnknownNameThrowsMappingNotFound-in-sequence-diagram.html">
+      <span class="id">B1</span><span class="title">取不存在的列名 → IllegalArgumentException，消息带 "expected one of"</span>
+      <span class="desc">headerMap 非空但查不到 key 时的异常类型，与 A1 的 headerMap == null → IllegalStateException 形成分界。</span>
+      <span class="meta">getByNameWithUnknownNameThrowsMappingNotFound（:143-149）</span>
+    </a>
+    <a class="card" href="b2a-headerLongerThanRecordThrowsIndexMessage-in-sequence-diagram.html">
+      <span class="id">B2a</span><span class="title">表头列数多于记录列数 → 按名取不到的列先数组越界、再转换成 Index 消息</span>
+      <span class="desc">isConsistent() 为 false；"先越界、再转换成新异常"是两个独立步骤，不是一步直接抛错。</span>
+      <span class="meta">headerLongerThanRecordThrowsIndexMessage（:153-161）</span>
+    </a>
+    <a class="card" href="b2b-recordLongerThanHeaderIsInconsistentButReadable-in-sequence-diagram.html">
+      <span class="id">B2b</span><span class="title">记录列数多于表头列数 → 已映射列仍可正常取值（对照 B2a）</span>
+      <span class="desc">多出来的值照常存进记录，isConsistent() 同样为 false，但方向与 B2a 相反：这里是数据比表头长。</span>
+      <span class="meta">recordLongerThanHeaderIsInconsistentButReadable（:165-171）</span>
+    </a>
+    <a class="card" href="b3a-headerOnlyFileYieldsNoRecordsButHeaderMap-in-sequence-diagram.html">
+      <span class="id">B3a</span><span class="title">仅表头行，没有任何数据行 → 数据记录为空，headerMap / headerNames 仍完整</span>
+      <span class="desc">表头的世界在 CSVParser 构造期就已定案，与之后到底有没有数据行完全独立。</span>
+      <span class="meta">headerOnlyFileYieldsNoRecordsButHeaderMap（:175-181）</span>
+    </a>
+    <a class="card" href="b3b-emptyFileWithAutoDetectedHeaderYieldsEmptyHeaderMap-in-sequence-diagram.html">
+      <span class="id">B3b</span><span class="title">完全空文件 + 自动探测表头 → headerMap 是空 Map，不是 null</span>
+      <span class="desc">createEmptyHeaderMap() 在更早的步骤就已经把 Map 对象建好了——headerMap == null 与"空 Map"是两种不同的退化形态。</span>
+      <span class="meta">emptyFileWithAutoDetectedHeaderYieldsEmptyHeaderMap（:185-191）</span>
+    </a>
+  </div>
+
+  <div class="footer-note">
+    每个页面都支持：←/→ 单步播放、自动播放（可调速）、跳到 Given/When/Then、导出整图 PNG/PDF、
+    导出当前步 PNG、按 <code>P</code> 键切换 16:9 演示模式（用于录屏/讲课）。<br />
+    这批页面是时序可视化版本，文字讲解版本见
+    <a href="../../explaining-scenarios-in-html/group-b/index.html">explaining-scenarios-in-html/group-b/</a>（互为补充，不互相替代）。
+  </div>
+</div>
+</body>
+</html>

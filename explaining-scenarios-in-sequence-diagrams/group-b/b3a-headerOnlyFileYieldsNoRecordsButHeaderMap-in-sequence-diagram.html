@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>B3a · 仅表头行：数据为空但 headerMap 仍完整 · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← B 组导航</a></div>
+  <header class="page-header">
+    <h1>B3a · 仅表头行：数据记录为空，headerMap / headerNames 仍完整可用</h1>
+    <p class="subtitle">HeadersCharacterizationTest.NameAccessBoundaries#headerOnlyFileYieldsNoRecordsButHeaderMap（:175-181）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件而非字符串字面量，第一步会是 <code>Files.newBufferedReader(path)</code> 读取一个 <code>.csv</code> 文件；
+    这里用 <code>new StringReader("id,currency,amount\r\n")</code> 等价地扮演"文件"角色，字节内容与磁盘上这样一个只有表头行、没有数据行的文件完全一致。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-b/b3a-headerOnlyFileYieldsNoRecordsButHeaderMap.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="b2b-recordLongerThanHeaderIsInconsistentButReadable-in-sequence-diagram.html">« B2b：数据比表头长</a>
+    <a href="b3b-emptyFileWithAutoDetectedHeaderYieldsEmptyHeaderMap-in-sequence-diagram.html">B3b：完全空文件 »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "b3a",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据
+  Test->>Format: headerFromFirstRecord 自动探测表头并跳过首行
+  Test->>File: new StringReader(id,currency,amount) 只有一行表头
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders 走自动探测分支读取首行作为表头候选
+  Lexer->>Lexer: parseSimpleToken 逐字符扫描 id 直到逗号
+  Lexer-->>Parser: 返回 TOKEN id
+  Lexer->>Lexer: parseSimpleToken 扫描 currency 直到逗号
+  Lexer-->>Parser: 返回 TOKEN currency
+  Lexer->>Lexer: parseSimpleToken 扫描 amount 并 readEndOfLine 消费回车换行
+  Lexer-->>Parser: 返回 EORECORD amount
+  Parser->>Parser: headerRecord 赋值为 id currency amount
+  Parser->>Parser: 映射循环建立 headerMap 三项齐全
+  Test->>Parser: parser.getRecords 尝试读取下一条记录
+  Parser->>Lexer: nextToken 尝试读取表头之后的内容
+  Lexer-->>Parser: 返回 EOF 流已耗尽没有数据行
+  Parser-->>Test: getRecords 返回空列表
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Parser: 断言 getRecords 为空列表
+  Test->>Parser: 断言 getHeaderMap size 等于 3
+  Test->>Parser: 断言 getHeaderNames 等于 id currency amount
+  Note over Parser,Test: 表头的世界在 CSVParser 构造期就已定案，与之后到底有没有数据行完全无关
+  end
+`,
+  steps: [
+    { phase: "given", label: "headerFromFirstRecord 自动探测表头并跳过首行",
+      code: "HeadersCharacterizationTest.java:51-53, 176",
+      stmt: 'private static CSVFormat headerFromFirstRecord() {\n    return CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).get();\n}',
+      why: "<b>Given</b>：与 B1 相同的自动探测配置。",
+      vars: { format: "setHeader()（自动探测）+ setSkipHeaderRecord(true)" } },
+    { phase: "given", label: "new StringReader(id,currency,amount) 只有一行表头",
+      code: "HeadersCharacterizationTest.java:176",
+      stmt: 'try (CSVParser parser = headerFromFirstRecord().parse(new StringReader("id,currency,amount\\r\\n"))) {',
+      why: "<b>Given</b>：这次虚拟文件<b>只有表头那一行</b>，连一行数据都没有——注意本测试没有经过 <code>parseRecords</code> 辅助方法，而是直接用 <code>try</code> 持有 <code>parser</code> 本身，因为要断言 <code>parser.getHeaderMap()</code>。",
+      vars: { csv: '"id,currency,amount\\r\\n"（虚拟文件内容，仅表头行）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "<b>When</b>：调用待测入口，内部 new 一个 <code>CSVParser</code>，构造函数立即建立表头。",
+      vars: {} },
+    { phase: "when", label: "createHeaders 走自动探测分支读取首行作为表头候选",
+      code: "CSVParser.java:631, 635, 637",
+      stmt: "final String[] formatHeader = format.getHeader(); // String[0]\nif (formatHeader.length == 0) {\n    final CSVRecord nextRecord = nextRecord();",
+      why: "<code>formatHeader</code> 是空数组，走自动探测分支：先把文件首行当普通记录读出来。",
+      vars: { formatHeader: "String[0]（非 null，长度 0）" } },
+    { phase: "when", label: "parseSimpleToken 逐字符扫描 id 直到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：i d ',' → 命中 isDelimiter(',')",
+      why: "下钻到字符级（本页第一次真正读到数据，只展开一次）：逐字符扫描首行。",
+      vars: { "当前字符缓冲": '"id"' } },
+    { phase: "when", label: "返回 TOKEN id",
+      code: "Lexer.java:437",
+      stmt: 'token.type = TOKEN; token.content.append("id");',
+      why: "第一个字段切出完成。",
+      vars: { "token[0]": '"id"' } },
+    { phase: "when", label: "parseSimpleToken 扫描 currency 直到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：c u r r e n c y ',' → 命中 isDelimiter(',')",
+      why: "继续扫描，切出第二个字段。",
+      vars: { "当前字符缓冲": '"currency"' } },
+    { phase: "when", label: "返回 TOKEN currency",
+      code: "Lexer.java:437",
+      stmt: 'token.type = TOKEN; token.content.append("currency");',
+      why: "第二个字段切出完成。",
+      vars: { "token[1]": '"currency"' } },
+    { phase: "when", label: "parseSimpleToken 扫描 amount 并 readEndOfLine 消费回车换行",
+      code: "Lexer.java:437, 475",
+      stmt: "// 逐字符读取：a m o u n t \\r → readEndOfLine 识别 \\r\\n 为行尾",
+      why: "第三个字段遇 <code>\\r</code> 结束，<code>readEndOfLine</code> 吃掉 <code>\\r\\n</code>——注意这一行之后，<b>流就已经耗尽</b>（下一次读会直接 EOF）。",
+      vars: { "当前字符缓冲": '"amount"' } },
+    { phase: "when", label: "返回 EORECORD amount",
+      code: "Lexer.java:437",
+      stmt: 'token.type = EORECORD; token.content.append("amount");',
+      why: "第三个字段连带\"行结束\"标记返回，首行三个字段全部切分完毕。",
+      vars: { "token[2]": '"amount"（EORECORD）' } },
+    { phase: "when", label: "headerRecord 赋值为 id currency amount",
+      code: "CSVParser.java:639",
+      stmt: "headerRecord = nextRecord.values();",
+      why: "刚读出的首行值数组被当成表头记录。",
+      vars: { headerRecord: '["id", "currency", "amount"]' } },
+    { phase: "when", label: "映射循环建立 headerMap 三项齐全",
+      code: "CSVParser.java:655-678（672 行 put）",
+      stmt: "for (int i = 0; i < headerRecord.length; i++) {\n    headerMap.put(header, Integer.valueOf(i));\n}",
+      why: "建立三项映射：<code>{id=0, currency=1, amount=2}</code>——这一步在构造期完成，<b>此时文件还剩下 0 字节，数据世界已经是空的了，但表头世界已经定案</b>。",
+      vars: { "headers.headerMap": "{id=0, currency=1, amount=2}" } },
+    { phase: "when", label: "parser.getRecords 尝试读取下一条记录",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "进入惰性读取阶段，开始循环尝试读\"下一条\"记录。",
+      vars: {} },
+    { phase: "when", label: "nextToken 尝试读取表头之后的内容",
+      code: "Lexer.java:256",
+      stmt: "Token nextToken(final Token token) throws IOException {",
+      why: "<code>nextRecord()</code>（CSVParser.java:915）再次调用 <code>nextToken</code>，但此时字符流里已经什么都没有了。",
+      vars: {} },
+    { phase: "when", label: "返回 EOF 流已耗尽没有数据行",
+      code: "Lexer.java:262",
+      stmt: "// StringReader 已读到末尾，Token.Type.EOF",
+      why: "流被完全耗尽，<code>nextToken</code> 返回 <code>EOF</code> 类型的 token，意味着\"没有更多记录了\"。",
+      vars: { "token.type": "EOF" } },
+    { phase: "when", label: "getRecords 返回空列表",
+      code: "CSVParser.java:795",
+      stmt: "// 迭代器的 hasNext() 为 false，getRecords() 返回空的 ArrayList",
+      why: "因为一次有效的数据记录都没能读出来，<code>getRecords()</code> 最终返回一个空列表——但请注意，这完全没有影响前面已经建好的 <code>headerMap</code>。",
+      vars: { "getRecords()": "[]（空列表）" } },
+    { phase: "then", label: "断言 getRecords 为空列表",
+      code: "HeadersCharacterizationTest.java:177",
+      stmt: "assertTrue(parser.getRecords().isEmpty());",
+      why: "<b>Then</b>：确认数据记录确实是空的。",
+      vars: {} },
+    { phase: "then", label: "断言 getHeaderMap size 等于 3",
+      code: "HeadersCharacterizationTest.java:178; CSVParser.java:732-739",
+      stmt: "assertEquals(3, parser.getHeaderMap().size());",
+      why: "即便没有任何数据行，<code>getHeaderMap()</code> 依然返回三项齐全的映射——表头在构造期已经定案，和后面有没有数据完全独立。",
+      vars: { "parser.getHeaderMap().size()": "3" } },
+    { phase: "then", label: "断言 getHeaderNames 等于 id currency amount",
+      code: "HeadersCharacterizationTest.java:179; CSVParser.java:762-764",
+      stmt: 'assertEquals(Arrays.asList("id", "currency", "amount"), parser.getHeaderNames());',
+      why: "<code>getHeaderNames()</code> 同样完整，按原始列序返回只读列表——\"表头的世界\"和\"数据的世界\"是两个可以互相独立存在的世界。",
+      vars: { "parser.getHeaderNames()": '["id", "currency", "amount"]' } },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>B1 · 取不存在的列名抛 Mapping not found · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← B 组导航</a></div>
+  <header class="page-header">
+    <h1>B1 · 取不存在的列名：按名取值抛 IllegalArgumentException</h1>
+    <p class="subtitle">HeadersCharacterizationTest.NameAccessBoundaries#getByNameWithUnknownNameThrowsMappingNotFound（:143-149）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件而非字符串字面量，第一步会是 <code>Files.newBufferedReader(path)</code> 读取一个 <code>.csv</code> 文件；
+    这里用 <code>new StringReader("id,currency,amount\r\n1,USD,100\r\n")</code> 等价地扮演"文件"角色，字节内容与磁盘上这样一个文件完全一致。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-b/b1-getByNameWithUnknownNameThrowsMappingNotFound.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <span class="disabled">« 已是 B 组第一个测试</span>
+    <a href="b2a-headerLongerThanRecordThrowsIndexMessage-in-sequence-diagram.html">B2a：表头比数据长 »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "b1",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据
+  Test->>Format: headerFromFirstRecord 自动探测表头并跳过首行
+  Test->>File: new StringReader(id,currency,amount 1,USD,100)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders 读取 formatHeader 为空数组
+  Parser->>Parser: 走自动探测分支读取首行作为表头候选
+  Lexer->>Lexer: parseSimpleToken 逐字符扫描 id 直到逗号
+  Lexer-->>Parser: 返回 TOKEN id
+  Lexer->>Lexer: parseSimpleToken 逐字符扫描 currency 直到逗号
+  Lexer-->>Parser: 返回 TOKEN currency
+  Lexer->>Lexer: parseSimpleToken 扫描 amount 并 readEndOfLine 消费回车换行
+  Lexer-->>Parser: 返回 EORECORD amount
+  Parser->>Parser: headerRecord 赋值为 id currency amount
+  Parser->>Parser: 映射循环写入 headerMap id零 currency一 amount二
+  Test->>Parser: parser.getRecords 读取数据行
+  loop 数据行 1,USD,100（同样字符流程，已折叠）
+    Parser->>Rec: 生成第1条记录 1 USD 100
+  end
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 调用 get nope 按名取值
+  Rec->>Rec: headerMap.get nope 返回 null
+  Rec-->>Test: 抛出 IllegalArgumentException Mapping for nope not found
+  Note over Rec,Test: 对照 A1：headerMap 为 null 时抛 IllegalStateException；这里 headerMap 非空只是查不到 key，抛 IllegalArgumentException
+  end
+`,
+  steps: [
+    { phase: "given", label: "headerFromFirstRecord 自动探测表头并跳过首行",
+      code: "HeadersCharacterizationTest.java:51-53, 144",
+      stmt: 'private static CSVFormat headerFromFirstRecord() {\n    return CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).get();\n}',
+      why: "<b>Given</b>：复用测试类里的私有工厂方法——<code>setHeader()</code> 无参表示\"自动把首行当表头\"，<code>setSkipHeaderRecord(true)</code> 让该行不进入数据记录。",
+      vars: { format: "setHeader()（自动探测）+ setSkipHeaderRecord(true)" } },
+    { phase: "given", label: "new StringReader(id,currency,amount 1,USD,100)",
+      code: "HeadersCharacterizationTest.java:144",
+      stmt: 'final List<CSVRecord> records =\n    parseRecords(headerFromFirstRecord(), "id,currency,amount\\r\\n1,USD,100\\r\\n");',
+      why: "<b>Given</b>：虚拟文件第一行是表头文本，第二行是唯一一条数据。",
+      vars: { csv: '"id,currency,amount\\r\\n1,USD,100\\r\\n"（虚拟文件内容）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "<b>When</b>：调用待测入口，内部 new 一个 <code>CSVParser</code>，其构造函数立即建立表头。",
+      vars: {} },
+    { phase: "when", label: "createHeaders 读取 formatHeader 为空数组",
+      code: "CSVParser.java:631",
+      stmt: "final String[] formatHeader = format.getHeader();",
+      why: "<code>setHeader()</code> 无参传入的是空数组（非 null），这是走\"自动探测\"分支的信号。",
+      vars: { formatHeader: "String[0]（非 null，长度 0）" } },
+    { phase: "when", label: "走自动探测分支读取首行作为表头候选",
+      code: "CSVParser.java:635, 637",
+      stmt: "if (formatHeader.length == 0) {\n    final CSVRecord nextRecord = nextRecord();",
+      why: "长度为 0 命中自动探测分支：先把文件首行当成普通记录读出来，再决定它是表头。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken 逐字符扫描 id 直到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：i d ',' → 命中 isDelimiter(',')",
+      why: "下钻到字符级（本页第一次真正读到数据，只展开一次）：<code>parseSimpleToken</code> 一个个字符读取，用 <code>isDelimiter(',')</code>（Lexer.java:150）判断字段边界。",
+      vars: { "当前字符缓冲": '"id"' } },
+    { phase: "when", label: "返回 TOKEN id",
+      code: "Lexer.java:437",
+      stmt: 'token.type = TOKEN; token.content.append("id");',
+      why: "第一个字段切出完成。",
+      vars: { "token[0]": '"id"' } },
+    { phase: "when", label: "parseSimpleToken 逐字符扫描 currency 直到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：c u r r e n c y ',' → 命中 isDelimiter(',')",
+      why: "同样的逐字符扫描过程，这次切出第二个字段。",
+      vars: { "当前字符缓冲": '"currency"' } },
+    { phase: "when", label: "返回 TOKEN currency",
+      code: "Lexer.java:437",
+      stmt: 'token.type = TOKEN; token.content.append("currency");',
+      why: "第二个字段切出完成。",
+      vars: { "token[1]": '"currency"' } },
+    { phase: "when", label: "parseSimpleToken 扫描 amount 并 readEndOfLine 消费回车换行",
+      code: "Lexer.java:437, 475",
+      stmt: "// 逐字符读取：a m o u n t \\r → readEndOfLine 识别 \\r\\n 为行尾",
+      why: "第三个字段在遇到 <code>\\r</code> 时结束，<code>readEndOfLine</code> 负责吃掉 <code>\\r\\n</code>，标记这一行到此结束。",
+      vars: { "当前字符缓冲": '"amount"' } },
+    { phase: "when", label: "返回 EORECORD amount",
+      code: "Lexer.java:437",
+      stmt: 'token.type = EORECORD; token.content.append("amount");',
+      why: "第三个字段连带\"行结束\"标记一起返回，这一行的三个字段全部切分完毕。",
+      vars: { "token[2]": '"amount"（EORECORD）' } },
+    { phase: "when", label: "headerRecord 赋值为 id currency amount",
+      code: "CSVParser.java:639",
+      stmt: "headerRecord = nextRecord.values();",
+      why: "刚读出的那一行的值数组，被当成表头记录。",
+      vars: { headerRecord: '["id", "currency", "amount"]' } },
+    { phase: "when", label: "映射循环写入 headerMap id零 currency一 amount二",
+      code: "CSVParser.java:655-678（672 行 put）",
+      stmt: "for (int i = 0; i < headerRecord.length; i++) {\n    headerMap.put(header, Integer.valueOf(i));\n}",
+      why: "逐列建立\"名字 → 下标\"映射：<code>headerMap = {id=0, currency=1, amount=2}</code>。这一步在 <b>CSVParser 构造期</b>完成——比任何数据记录被业务代码读到都早。",
+      vars: { "headers.headerMap": "{id=0, currency=1, amount=2}" } },
+    { phase: "when", label: "parser.getRecords 读取数据行",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "表头已定案，现在才进入惰性读取阶段去读真正的数据行。",
+      vars: {} },
+    { phase: "when", label: "生成第1条记录 1 USD 100",
+      code: "Lexer/CSVParser（同上字符流程，折叠）",
+      stmt: "// 第二行 1,USD,100 重复同样的 token 切分 → addRecordValue",
+      why: "数据行的字符级流程与表头行完全相同，这里折叠不再展开，只看结果。",
+      vars: { "records[0].values": '["1", "USD", "100"]', "records.size": "1" } },
+    { phase: "then", label: "调用 get nope 按名取值",
+      code: "HeadersCharacterizationTest.java:145-146",
+      stmt: 'final IllegalArgumentException e =\n    assertThrows(IllegalArgumentException.class, () -> records.get(0).get("nope"));',
+      why: "<b>Then</b>：按一个表头里根本不存在的列名取值。",
+      vars: {} },
+    { phase: "then", label: "headerMap.get nope 返回 null",
+      code: "CSVRecord.java:135",
+      stmt: 'final Integer index = name == null ? null : headerMap.get(name);',
+      why: "<code>headerMap</code> 本身是存在且完整的（三项齐全），只是查不到 <code>\"nope\"</code> 这个 key，查询结果是 <code>null</code>。",
+      vars: { index: "null" } },
+    { phase: "then", label: "抛出 IllegalArgumentException Mapping for nope not found",
+      code: "CSVRecord.java:136-137",
+      stmt: 'if (index == null) {\n    throw new IllegalArgumentException(String.format(\n        "Mapping for %s not found, expected one of %s", name, headerMap.keySet()));\n}',
+      why: "完整消息是 <code>\"Mapping for nope not found, expected one of [id, currency, amount]\"</code>——需求原文只引用了前半句，真实消息还带 <code>expected one of</code> 后半句。",
+      vars: { "异常类型": "IllegalArgumentException", "e.getMessage()": "Mapping for nope not found, expected one of [id, currency, amount]" } },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

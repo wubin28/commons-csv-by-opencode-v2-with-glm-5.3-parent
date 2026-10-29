@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>B2a · 表头比数据长：按名取值报 Index 消息 · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← B 组导航</a></div>
+  <header class="page-header">
+    <h1>B2a · 表头列数多于记录列数：按名取不到的列报 Index 消息</h1>
+    <p class="subtitle">HeadersCharacterizationTest.NameAccessBoundaries#headerLongerThanRecordThrowsIndexMessage（:153-161）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件而非字符串字面量，第一步会是 <code>Files.newBufferedReader(path)</code> 读取一个 <code>.csv</code> 文件；
+    这里用 <code>new StringReader("1,USD\r\n")</code> 等价地扮演"文件"角色，字节内容与磁盘上这样一个文件完全一致。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-b/b2a-headerLongerThanRecordThrowsIndexMessage.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="b1-getByNameWithUnknownNameThrowsMappingNotFound-in-sequence-diagram.html">« B1：取不存在的列名</a>
+    <a href="b2b-recordLongerThanHeaderIsInconsistentButReadable-in-sequence-diagram.html">B2b：数据比表头长 »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "b2a",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据
+  Test->>Format: setHeader id currency amount 手工指定三列表头
+  Test->>File: new StringReader(1,USD) 数据行只给两个值
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders 读取 formatHeader 长度为3非空
+  Parser->>Parser: 走手工表头分支 headerRecord 赋值为 formatHeader
+  Parser->>Parser: 映射循环写入 headerMap id零 currency一 amount二
+  Test->>Parser: parser.getRecords 读取数据行
+  Lexer->>Lexer: parseSimpleToken 逐字符扫描 1 直到逗号
+  Lexer-->>Parser: 返回 TOKEN 1
+  Lexer->>Lexer: parseSimpleToken 扫描 USD 并 readEndOfLine 消费回车换行
+  Lexer-->>Parser: 返回 EORECORD USD
+  Parser->>Rec: 生成第1条记录 values长度为2
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 断言 records.size 等于 1
+  Test->>Rec: 断言 isConsistent 为 false
+  Test->>Rec: 调用 get amount 按名取值
+  Rec->>Rec: headerMap.get amount 返回下标2
+  Rec->>Rec: values下标2访问越界抛出数组越界异常
+  Rec->>Rec: catch捕获后转换为IllegalArgumentException
+  Rec-->>Test: 抛出 Index for header amount is 2 but only has 2 values
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader id currency amount 手工指定三列表头",
+      code: "HeadersCharacterizationTest.java:154",
+      stmt: 'final CSVFormat format = CSVFormat.DEFAULT.builder()\n    .setHeader("id", "currency", "amount").get();',
+      why: "<b>Given</b>：手工表头共 3 列。源数据没有自己的表头行，也没有调用 <code>setSkipHeaderRecord</code>——因为文件里压根没有一行要跳过。",
+      vars: { format: '手工表头 ["id","currency","amount"]（3 列）' } },
+    { phase: "given", label: "new StringReader(1,USD) 数据行只给两个值",
+      code: "HeadersCharacterizationTest.java:155",
+      stmt: 'final List<CSVRecord> records = parseRecords(format, "1,USD\\r\\n");',
+      why: "<b>Given</b>：唯一一行数据只有 2 个值，比表头声明的 3 列少一个——这是\"隐性缺列\"的根源。",
+      vars: { csv: '"1,USD\\r\\n"（虚拟文件内容，只有 2 个值）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "<b>When</b>：调用待测入口，内部 new 一个 <code>CSVParser</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders 读取 formatHeader 长度为3非空",
+      code: "CSVParser.java:631-632",
+      stmt: "final String[] formatHeader = format.getHeader();\nif (formatHeader != null) {",
+      why: "<code>formatHeader</code> 是配置里的 <code>[\"id\",\"currency\",\"amount\"]</code>，非 null 也非空数组——走手工表头这条路径（与 B1 的自动探测分支不同）。",
+      vars: { formatHeader: '["id", "currency", "amount"]' } },
+    { phase: "when", label: "走手工表头分支 headerRecord 赋值为 formatHeader",
+      code: "CSVParser.java:649",
+      stmt: "headerRecord = formatHeader;",
+      why: "手工表头不读文件，配置数组本身直接成为 <code>headerRecord</code>。",
+      vars: { headerRecord: '["id", "currency", "amount"]' } },
+    { phase: "when", label: "映射循环写入 headerMap id零 currency一 amount二",
+      code: "CSVParser.java:655-678（672 行 put）",
+      stmt: "for (int i = 0; i < headerRecord.length; i++) {\n    headerMap.put(header, Integer.valueOf(i));\n}",
+      why: "建立三项映射：<code>{id=0, currency=1, amount=2}</code>。<b>这一步在 CSVParser 构造期完成，数据行还没开始读</b>——表头\"声明\"了 3 列，但不代表之后每一行数据都真的有 3 个值。",
+      vars: { "headers.headerMap": "{id=0, currency=1, amount=2}" } },
+    { phase: "when", label: "parser.getRecords 读取数据行",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "表头定案后，才进入惰性读取，真正去读那一行只有两个值的数据。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken 逐字符扫描 1 直到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：1 ',' → 命中 isDelimiter(',')",
+      why: "下钻到字符级（本页第一次真正读数据，只展开一次）：<code>parseSimpleToken</code> 逐字符扫描，遇到逗号结束字段。",
+      vars: { "当前字符缓冲": '"1"' } },
+    { phase: "when", label: "返回 TOKEN 1",
+      code: "Lexer.java:437",
+      stmt: 'token.type = TOKEN; token.content.append("1");',
+      why: "第一个字段切出完成，类型是普通 TOKEN。",
+      vars: { "token[0]": '"1"' } },
+    { phase: "when", label: "parseSimpleToken 扫描 USD 并 readEndOfLine 消费回车换行",
+      code: "Lexer.java:437, 475",
+      stmt: "// 逐字符读取：U S D \\r → readEndOfLine 识别 \\r\\n 为行尾",
+      why: "第二个字段在遇到 <code>\\r</code> 时结束，<code>readEndOfLine</code> 吃掉 <code>\\r\\n</code>，整行到此结束——这一行**只有两个字段**，不会凭空多出第三个值。",
+      vars: { "当前字符缓冲": '"USD"' } },
+    { phase: "when", label: "返回 EORECORD USD",
+      code: "Lexer.java:437",
+      stmt: 'token.type = EORECORD; token.content.append("USD");',
+      why: "第二个字段连带\"行结束\"标记返回，这一行的字符切分到此结束。",
+      vars: { "token[1]": '"USD"（EORECORD）' } },
+    { phase: "when", label: "生成第1条记录 values长度为2",
+      code: "CSVParser.java:594-602",
+      stmt: "addRecordValue(...); // 收集进 recordList",
+      why: "两个 token 组装成 <code>values = [\"1\", \"USD\"]</code>，长度 2——比 <code>headerMap</code> 的 3 项少一个。",
+      vars: { "records[0].values": '["1", "USD"]（长度 2）' } },
+    { phase: "then", label: "断言 records.size 等于 1",
+      code: "HeadersCharacterizationTest.java:156",
+      stmt: "assertEquals(1, records.size());",
+      why: "<b>Then</b>：数据行照常被读出，并不会因为列数不够就被拒绝或报错。",
+      vars: {} },
+    { phase: "then", label: "断言 isConsistent 为 false",
+      code: "HeadersCharacterizationTest.java:157; CSVRecord.java:237-239",
+      stmt: "assertFalse(records.get(0).isConsistent());\n// return headerMap == null || headerMap.size() == values.length;",
+      why: "<code>headerMap.size()</code>（3）≠ <code>values.length</code>（2），<code>isConsistent()</code> 为 <code>false</code>——这是\"表头比数据长\"留下的可检测信号，但它只是一个布尔查询，不会主动阻止取值。",
+      vars: { "isConsistent()": "false（3 != 2）" } },
+    { phase: "then", label: "调用 get amount 按名取值",
+      code: "HeadersCharacterizationTest.java:158-159",
+      stmt: 'final IllegalArgumentException e =\n    assertThrows(IllegalArgumentException.class, () -> records.get(0).get("amount"));',
+      why: "按名取第 3 列 <code>\"amount\"</code>，而这条记录物理上只有 2 个值。",
+      vars: {} },
+    { phase: "then", label: "headerMap.get amount 返回下标2",
+      code: "CSVRecord.java:135",
+      stmt: 'final Integer index = name == null ? null : headerMap.get(name);',
+      why: "<code>\"amount\"</code> 在 <code>headerMap</code> 里是存在的 key，查到的下标是 <code>2</code>——映射本身没有任何问题。",
+      vars: { index: "2" } },
+    { phase: "then", label: "values下标2访问越界抛出数组越界异常",
+      code: "CSVRecord.java:140",
+      stmt: "return values[index.intValue()]; // Explicit unboxing is intentional",
+      why: "问题出现在**用这个下标去访问物理数组**的那一刻：<code>values.length</code> 只有 2，访问 <code>values[2]</code> 先抛出内部的 <code>ArrayIndexOutOfBoundsException</code>——这是真正报错的第一步，还不是测试断言捕获的那个异常类型。",
+      vars: { "values.length": "2", "内部异常": "ArrayIndexOutOfBoundsException（第一步，尚未对外抛出）" } },
+    { phase: "then", label: "catch捕获后转换为IllegalArgumentException",
+      code: "CSVRecord.java:141-144",
+      stmt: 'catch (final ArrayIndexOutOfBoundsException e) {\n    throw new IllegalArgumentException(String.format(\n        "Index for header \'%s\' is %d but CSVRecord only has %d values!",\n        name, index, Integer.valueOf(values.length)));\n}',
+      why: "第二步：<code>catch</code> 捕获内部的数组越界异常，转换成一个带列名、期望下标、实际长度的 <code>IllegalArgumentException</code>——\"先越界、再转换成新异常\"是两个独立的步骤，不是一步直接抛错。",
+      vars: {} },
+    { phase: "then", label: "抛出 Index for header amount is 2 but only has 2 values",
+      code: "HeadersCharacterizationTest.java:160",
+      stmt: 'assertTrue(e.getMessage().contains(\n    "Index for header \'amount\' is 2 but CSVRecord only has 2 values!"));',
+      why: "最终对外可见的只有这个转换后的 <code>IllegalArgumentException</code>，消息里同时带上了列名 <code>amount</code>、期望下标 <code>2</code>、以及记录实际的值个数 <code>2</code>。",
+      vars: { "异常类型": "IllegalArgumentException（转换后）", "e.getMessage()": "Index for header 'amount' is 2 but CSVRecord only has 2 values!" } },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

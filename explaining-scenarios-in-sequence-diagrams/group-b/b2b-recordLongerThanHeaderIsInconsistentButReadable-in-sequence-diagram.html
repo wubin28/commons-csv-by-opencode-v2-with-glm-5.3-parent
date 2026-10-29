@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>B2b · 数据比表头长：仍可按名取已映射列 · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← B 组导航</a></div>
+  <header class="page-header">
+    <h1>B2b · 记录列数多于表头列数：已映射列仍可正常取值（对照 B2a）</h1>
+    <p class="subtitle">HeadersCharacterizationTest.NameAccessBoundaries#recordLongerThanHeaderIsInconsistentButReadable（:165-171）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件而非字符串字面量，第一步会是 <code>Files.newBufferedReader(path)</code> 读取一个 <code>.csv</code> 文件；
+    这里用 <code>new StringReader("1,USD,100,extra\r\n")</code> 等价地扮演"文件"角色，字节内容与磁盘上这样一个文件完全一致。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-b/b2b-recordLongerThanHeaderIsInconsistentButReadable.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="b2a-headerLongerThanRecordThrowsIndexMessage-in-sequence-diagram.html">« B2a：表头比数据长</a>
+    <a href="b3a-headerOnlyFileYieldsNoRecordsButHeaderMap-in-sequence-diagram.html">B3a：仅表头行 »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "b2b",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据
+  Test->>Format: setHeader id currency amount 手工指定三列表头
+  Test->>File: new StringReader(1,USD,100,extra) 数据行多给一个值
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders 走手工表头分支 headerRecord 赋值为 formatHeader
+  Parser->>Parser: 映射循环写入 headerMap id零 currency一 amount二
+  Test->>Parser: parser.getRecords 读取数据行
+  Lexer->>Lexer: parseSimpleToken 逐字符扫描 1 直到逗号
+  Lexer-->>Parser: 返回 TOKEN 1
+  Lexer->>Lexer: parseSimpleToken 扫描 USD 直到逗号
+  Lexer-->>Parser: 返回 TOKEN USD
+  Lexer->>Lexer: parseSimpleToken 扫描 100 直到逗号
+  Lexer-->>Parser: 返回 TOKEN 100
+  Lexer->>Lexer: parseSimpleToken 扫描 extra 并 readEndOfLine 消费回车换行
+  Lexer-->>Parser: 返回 EORECORD extra
+  Parser->>Parser: addRecordValue 收集第4个值不受表头长度约束
+  Parser->>Rec: 生成第1条记录 values长度为4
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 断言 size 等于 4
+  Test->>Rec: 调用 get amount 按名取值
+  Rec->>Rec: headerMap.get amount 返回下标2并命中values
+  Rec-->>Test: 返回 100 已映射列正常取值
+  Test->>Rec: 断言 isConsistent 为 false
+  Note over Rec,Test: 对照 B2a：表头比数据长时越界报错；数据比表头长时已映射列仍可正常取值，只是 isConsistent 为 false
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader id currency amount 手工指定三列表头",
+      code: "HeadersCharacterizationTest.java:166",
+      stmt: 'final CSVFormat format = CSVFormat.DEFAULT.builder()\n    .setHeader("id", "currency", "amount").get();',
+      why: "<b>Given</b>：与 B2a 完全相同的手工表头配置（3 列）——这一页只改变数据行的长度方向。",
+      vars: { format: '手工表头 ["id","currency","amount"]（3 列）' } },
+    { phase: "given", label: "new StringReader(1,USD,100,extra) 数据行多给一个值",
+      code: "HeadersCharacterizationTest.java:167",
+      stmt: 'final List<CSVRecord> records = parseRecords(format, "1,USD,100,extra\\r\\n");',
+      why: "<b>Given</b>：唯一一行数据给了 4 个值，比表头声明的 3 列多一个——与 B2a 的\"表头比数据长\"正好是相反方向的边界。",
+      vars: { csv: '"1,USD,100,extra\\r\\n"（虚拟文件内容，4 个值）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "<b>When</b>：调用待测入口，内部 new 一个 <code>CSVParser</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders 走手工表头分支 headerRecord 赋值为 formatHeader",
+      code: "CSVParser.java:631-632, 649",
+      stmt: "final String[] formatHeader = format.getHeader();\n...\nheaderRecord = formatHeader;",
+      why: "与 B2a 一样走手工表头路径，<code>headerRecord</code> 直接取自配置数组，不读文件。",
+      vars: { headerRecord: '["id", "currency", "amount"]' } },
+    { phase: "when", label: "映射循环写入 headerMap id零 currency一 amount二",
+      code: "CSVParser.java:655-678（672 行 put）",
+      stmt: "for (int i = 0; i < headerRecord.length; i++) {\n    headerMap.put(header, Integer.valueOf(i));\n}",
+      why: "建立三项映射：<code>{id=0, currency=1, amount=2}</code>——这一步在构造期完成，与 B2a 的结果完全一样，差异只会在后面数据行读出来之后才显现。",
+      vars: { "headers.headerMap": "{id=0, currency=1, amount=2}" } },
+    { phase: "when", label: "parser.getRecords 读取数据行",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "表头定案后进入惰性读取，开始真正读那一行有 4 个值的数据。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken 逐字符扫描 1 直到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：1 ',' → 命中 isDelimiter(',')",
+      why: "下钻到字符级（本页第一次真正读数据，只展开一次）：逐字符扫描，遇逗号结束第一个字段。",
+      vars: { "当前字符缓冲": '"1"' } },
+    { phase: "when", label: "返回 TOKEN 1",
+      code: "Lexer.java:437",
+      stmt: 'token.type = TOKEN; token.content.append("1");',
+      why: "第一个字段切出完成。",
+      vars: { "token[0]": '"1"' } },
+    { phase: "when", label: "parseSimpleToken 扫描 USD 直到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：U S D ',' → 命中 isDelimiter(',')",
+      why: "继续扫描，切出第二个字段。",
+      vars: { "当前字符缓冲": '"USD"' } },
+    { phase: "when", label: "返回 TOKEN USD",
+      code: "Lexer.java:437",
+      stmt: 'token.type = TOKEN; token.content.append("USD");',
+      why: "第二个字段切出完成。",
+      vars: { "token[1]": '"USD"' } },
+    { phase: "when", label: "parseSimpleToken 扫描 100 直到逗号",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：1 0 0 ',' → 命中 isDelimiter(',')",
+      why: "继续扫描，切出第三个字段——到这里为止字段数量与表头一致。",
+      vars: { "当前字符缓冲": '"100"' } },
+    { phase: "when", label: "返回 TOKEN 100",
+      code: "Lexer.java:437",
+      stmt: 'token.type = TOKEN; token.content.append("100");',
+      why: "第三个字段切出完成，类型仍是普通 TOKEN——说明后面还有字段，这一行没有在第 3 列结束。",
+      vars: { "token[2]": '"100"' } },
+    { phase: "when", label: "parseSimpleToken 扫描 extra 并 readEndOfLine 消费回车换行",
+      code: "Lexer.java:437, 475",
+      stmt: "// 逐字符读取：e x t r a \\r → readEndOfLine 识别 \\r\\n 为行尾",
+      why: "第四个字段——表头完全没有声明过的\"第四列\"——在遇到 <code>\\r</code> 时结束，<code>readEndOfLine</code> 吃掉 <code>\\r\\n</code>。",
+      vars: { "当前字符缓冲": '"extra"' } },
+    { phase: "when", label: "返回 EORECORD extra",
+      code: "Lexer.java:437",
+      stmt: 'token.type = EORECORD; token.content.append("extra");',
+      why: "第四个字段连带\"行结束\"标记返回。",
+      vars: { "token[3]": '"extra"（EORECORD）' } },
+    { phase: "when", label: "addRecordValue 收集第4个值不受表头长度约束",
+      code: "CSVParser.java:594-602",
+      stmt: "private void addRecordValue(final boolean lastRecord) {\n    // 把 token 内容照常加入这一条记录的值列表\n}",
+      why: "<code>addRecordValue</code> 只管收集这一行切出来的每个字段，完全不知道、也不关心 <code>headerMap</code> 只映射了 3 列——多出来的第 4 个值照常被存进记录。",
+      vars: {} },
+    { phase: "when", label: "生成第1条记录 values长度为4",
+      code: "CSVParser.java:594-602",
+      stmt: "// recordList 组装完成：[\"1\", \"USD\", \"100\", \"extra\"]",
+      why: "最终这条记录的 <code>values</code> 数组长度是 4，比 <code>headerMap</code> 的 3 项多一个。",
+      vars: { "records[0].values": '["1", "USD", "100", "extra"]（长度 4）' } },
+    { phase: "then", label: "断言 size 等于 4",
+      code: "HeadersCharacterizationTest.java:168; CSVRecord.java:313",
+      stmt: "assertEquals(4, records.get(0).size());",
+      why: "<b>Then</b>：<code>size()</code> 如实反映物理长度 4，不受表头 3 列的限制。",
+      vars: {} },
+    { phase: "then", label: "调用 get amount 按名取值",
+      code: "HeadersCharacterizationTest.java:169",
+      stmt: 'assertEquals("100", records.get(0).get("amount"));',
+      why: "按名取第 3 列 <code>\"amount\"</code>——这一列在 <code>headerMap</code> 和 <code>values</code> 里都确实存在。",
+      vars: {} },
+    { phase: "then", label: "headerMap.get amount 返回下标2并命中values",
+      code: "CSVRecord.java:135, 140",
+      stmt: 'final Integer index = headerMap.get(name); // 2\nreturn values[index.intValue()]; // values[2] 存在，正常返回',
+      why: "与 B2a 不同：这里 <code>values.length == 4</code>，下标 <code>2</code> 完全在范围内，<b>不会</b>触发数组越界——对照 B2a 的\"越界再转换成异常\"两步，这里一步直达就正常返回。",
+      vars: { index: "2", "values.length": "4（对照 B2a 的 2）" } },
+    { phase: "then", label: "返回 100 已映射列正常取值",
+      code: "CSVRecord.java:140",
+      stmt: '// return values[2]; → "100"',
+      why: "已映射的列（amount）即便记录本身\"偏长\"，依然能正常按名取到——\"数据比表头长\"并不破坏已有映射的可用性，这正是与 B2a\"表头比数据长\"相反方向的对照结果。",
+      vars: { 'get("amount")': "100" } },
+    { phase: "then", label: "断言 isConsistent 为 false",
+      code: "HeadersCharacterizationTest.java:170; CSVRecord.java:237-239",
+      stmt: "assertFalse(records.get(0).isConsistent());\n// return headerMap == null || headerMap.size() == values.length;",
+      why: "<code>headerMap.size()</code>（3）≠ <code>values.length</code>（4），<code>isConsistent()</code> 同样是 <code>false</code>——与 B2a 的布尔结果一样，但背后含义相反：B2a 是\"缺列\"，这里是\"多列\"，<code>isConsistent()</code> 这个单一布尔信号分不出两者的差别，必须结合实际取值才能分辨。",
+      vars: { "isConsistent()": "false（3 != 4，与 B2a 同为 false 但方向相反）" } },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

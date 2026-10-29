@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>B3b · 完全空文件：headerMap 是空 Map 而非 null · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← B 组导航</a></div>
+  <header class="page-header">
+    <h1>B3b · 完全空文件 + 自动探测表头：headerMap 是空 Map，不是 null</h1>
+    <p class="subtitle">HeadersCharacterizationTest.NameAccessBoundaries#emptyFileWithAutoDetectedHeaderYieldsEmptyHeaderMap（:185-191）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件而非字符串字面量，第一步会是 <code>Files.newBufferedReader(path)</code> 读取一个 <code>.csv</code> 文件；
+    这里用 <code>new StringReader("")</code> 等价地扮演"文件"角色——它对应一个磁盘上字节数为 0 的空文件。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-b/b3b-emptyFileWithAutoDetectedHeaderYieldsEmptyHeaderMap.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="b3a-headerOnlyFileYieldsNoRecordsButHeaderMap-in-sequence-diagram.html">« B3a：仅表头行</a>
+    <span class="disabled">已是 B 组最后一个测试 »</span>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "b3b",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据
+  Test->>Format: headerFromFirstRecord 自动探测表头并跳过首行
+  Test->>File: new StringReader空字符串 完全空文件
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders 读取 formatHeader 为空数组非null
+  Parser->>Parser: createEmptyHeaderMap 先建出空LinkedHashMap
+  Parser->>Parser: formatHeader长度为0走自动探测分支
+  Parser->>Lexer: nextRecord 尝试读取首行
+  Lexer-->>Parser: 立即返回EOF流为空没有任何字符
+  Parser-->>Parser: nextRecord为null headerRecord保持null
+  Parser-->>Parser: headerRecord为null跳过整段映射循环
+  Parser-->>Parser: 返回Headers对象headerMap是空Map而非null
+  Test->>Parser: parser.getRecords 尝试读取记录
+  Parser-->>Test: 返回空列表EOF没有任何记录
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Parser: 断言 getRecords 为空列表
+  Test->>Parser: 断言 getHeaderMap 不为null
+  Test->>Parser: 断言 getHeaderMap 为空Map
+  Note over Parser,Test: 对照 A1：headerMap等于null是一种退化；这里headerMap存在但为空Map是另一种退化，两者不可混为一谈
+  end
+`,
+  steps: [
+    { phase: "given", label: "headerFromFirstRecord 自动探测表头并跳过首行",
+      code: "HeadersCharacterizationTest.java:51-53, 186",
+      stmt: 'private static CSVFormat headerFromFirstRecord() {\n    return CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).get();\n}',
+      why: "<b>Given</b>：与 B1、B3a 相同的自动探测配置——<code>setHeader()</code> 无参。",
+      vars: { format: "setHeader()（自动探测）+ setSkipHeaderRecord(true)" } },
+    { phase: "given", label: "new StringReader空字符串 完全空文件",
+      code: "HeadersCharacterizationTest.java:186",
+      stmt: 'try (CSVParser parser = headerFromFirstRecord().parse(new StringReader(""))) {',
+      why: "<b>Given</b>：虚拟文件内容是空字符串——比 B3a（至少有一行表头）更极端，<b>连表头行都不存在</b>。",
+      vars: { csv: '""（虚拟文件内容，完全空）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {",
+      why: "<b>When</b>：调用待测入口，内部 new 一个 <code>CSVParser</code>，构造函数立即着手建立表头。",
+      vars: {} },
+    { phase: "when", label: "createHeaders 读取 formatHeader 为空数组非null",
+      code: "CSVParser.java:631-632",
+      stmt: "final String[] formatHeader = format.getHeader();\nif (formatHeader != null) {",
+      why: "<code>setHeader()</code> 无参传入的是空数组（非 null），632 行判断为真，进入这个 <code>if</code> 分支——这一步与文件内容是否为空完全无关，只看 format 配置。",
+      vars: { formatHeader: "String[0]（非 null，长度 0）" } },
+    { phase: "when", label: "createEmptyHeaderMap 先建出空LinkedHashMap",
+      code: "CSVParser.java:633",
+      stmt: "headerMap = createEmptyHeaderMap();",
+      why: "<b>关键的一步</b>：在任何字符被真正读取之前，<code>headerMap</code> 这个 <code>LinkedHashMap</code> 对象已经被 <code>new</code> 出来了——它从一开始就不是 <code>null</code>，不管之后文件里有没有内容。",
+      vars: { "headers.headerMap（对象身份）": "已创建的空 LinkedHashMap（尚无条目）" } },
+    { phase: "when", label: "formatHeader长度为0走自动探测分支",
+      code: "CSVParser.java:635",
+      stmt: "if (formatHeader.length == 0) {",
+      why: "长度为 0，走自动探测分支：接下来会尝试去读文件首行当表头——但这次文件根本没有任何内容。",
+      vars: {} },
+    { phase: "when", label: "nextRecord 尝试读取首行",
+      code: "CSVParser.java:637",
+      stmt: "final CSVRecord nextRecord = nextRecord();",
+      why: "本该去读\"第一行\"来当表头候选，但这是本页与 B1/B3a 的分叉点——文件是完全空的，连一个字符都没有。",
+      vars: {} },
+    { phase: "when", label: "立即返回EOF流为空没有任何字符",
+      code: "Lexer.java:256, 262",
+      stmt: "// StringReader(\"\") 第一次 read 就命中 -1，Token.Type = EOF",
+      why: "没有任何字符可供扫描——本页不需要展开 <code>parseSimpleToken</code> 的逐字符细节，因为从头到尾就没有一个字符被真正读到过。这是与 B1/B3a 最直观的差异。",
+      vars: { "token.type": "EOF（没有任何字段被切分）" } },
+    { phase: "when", label: "nextRecord为null headerRecord保持null",
+      code: "CSVParser.java:637-638",
+      stmt: "final CSVRecord nextRecord = nextRecord(); // null\nif (nextRecord != null) { ... } // 不进入",
+      why: "<code>nextRecord()</code> 遇到 EOF 返回 <code>null</code>，638 行判断为假，<code>headerRecord</code> 从未被赋值，保持声明时的初值 <code>null</code>。",
+      vars: { nextRecord: "null", headerRecord: "null" } },
+    { phase: "when", label: "headerRecord为null跳过整段映射循环",
+      code: "CSVParser.java:652",
+      stmt: "if (headerRecord != null) { ... } // 不进入",
+      why: "652 行判断为假，655-678 行整段\"逐列建立映射\"的循环完全不会执行一次——<code>headerMap</code> 对象还是第 633 行创建时的那个<b>空</b>实例，没有任何条目被 put 进去。",
+      vars: {} },
+    { phase: "when", label: "返回Headers对象headerMap是空Map而非null",
+      code: "CSVParser.java:682",
+      stmt: "return new Headers(headerMap,\n    headerNames == null ? Collections.emptyList() : Collections.unmodifiableList(headerNames));",
+      why: "最终返回的 <code>Headers.headerMap</code> 就是 633 行那个空 <code>LinkedHashMap</code>——<b>它是\"存在但空\"的 Map，不是 null</b>。这是本场景的核心边界：\"完全没配表头\"（A1，headerMap == null）与\"配了自动探测但文件是空的\"（本场景，headerMap 是空 Map）是两种不同的退化形态。",
+      vars: { "headers.headerMap": "{}（空 LinkedHashMap，非 null）" } },
+    { phase: "when", label: "parser.getRecords 尝试读取记录",
+      code: "CSVParser.java:795",
+      stmt: "public List<CSVRecord> getRecords() {",
+      why: "表头世界（空 Map）已经定案，现在进入惰性读取阶段尝试读数据记录。",
+      vars: {} },
+    { phase: "when", label: "返回空列表EOF没有任何记录",
+      code: "CSVParser.java:795",
+      stmt: "// 迭代器 hasNext() 直接为 false（流早已耗尽）",
+      why: "因为连表头那次读取就已经撞上 EOF，后续也不会再有任何记录产出，<code>getRecords()</code> 返回空列表。",
+      vars: { "getRecords()": "[]（空列表）" } },
+    { phase: "then", label: "断言 getRecords 为空列表",
+      code: "HeadersCharacterizationTest.java:187",
+      stmt: "assertTrue(parser.getRecords().isEmpty());",
+      why: "<b>Then</b>：确认数据记录确实是空的，与 B3a 的结果一样。",
+      vars: {} },
+    { phase: "then", label: "断言 getHeaderMap 不为null",
+      code: "HeadersCharacterizationTest.java:188; CSVParser.java:732-739",
+      stmt: "assertNotNull(parser.getHeaderMap());",
+      why: "即便一个字符都没读到，<code>getHeaderMap()</code> 返回的对象依然<b>不是 null</b>——这正是 633 行提前 <code>new</code> 出来的那个空 Map 的防御性副本。",
+      vars: { "parser.getHeaderMap() 是否为 null": "false（不是 null）" } },
+    { phase: "then", label: "断言 getHeaderMap 为空Map",
+      code: "HeadersCharacterizationTest.java:189",
+      stmt: "assertTrue(parser.getHeaderMap().isEmpty());",
+      why: "但它确实没有任何条目——<code>headerMap == null</code>（A1 的退化形态）和 <code>headerMap</code> 是\"存在但空的 Map\"（本场景的退化形态）是两种必须分开处理的边界，不能用一句笼统的\"没有表头\"含糊过去。",
+      vars: { "parser.getHeaderMap()": "{}（空 Map，大小为 0）" } },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>
