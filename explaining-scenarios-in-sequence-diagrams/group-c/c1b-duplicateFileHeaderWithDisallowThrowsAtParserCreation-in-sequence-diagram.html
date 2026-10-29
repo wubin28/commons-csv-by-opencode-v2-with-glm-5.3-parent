@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C1b · 文件表头重复 + DISALLOW：parse 期抛错 · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← C 组导航</a></div>
+  <header class="page-header">
+    <h1>C1b · 文件自动探测表头重复 + DISALLOW：异常在 format.parse()（parse 期）抛出，早于任何数据记录 ★</h1>
+    <p class="subtitle">HeadersCharacterizationTest.DuplicateAndBlankHeaders#duplicateFileHeaderWithDisallowThrowsAtParserCreation（:210-216，本热身最关键的一个测试）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件，第一步会是 <code>Files.newBufferedReader(path)</code> 读取一个首行写着 <code>id,currency,id</code> 的 <code>.csv</code> 文件；
+    这里用 <code>new StringReader("id,currency,id\r\n1,USD,2\r\n")</code> 等价地扮演该文件角色。
+    <b>特别提示</b>：这个虚拟文件的表头行确实被读取并逐字符切分了，但数据行 <code>1,USD,2</code> 从未被消费——异常在 <code>CSVParser</code> 构造期间、建表头的那一步就抛出了。
+    对照上一页 <a href="c1a-duplicateManualHeaderWithDisallowThrowsAtFormatBuild-in-sequence-diagram.html">C1a</a>：同一种"重复列名该不该报错"的问题，手工表头在更早的 <code>builder.get()</code> 就被拦住，这里则是在 <code>format.parse()</code> 内部。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-c/c1b-duplicateFileHeaderWithDisallowThrowsAtParserCreation.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="c1a-duplicateManualHeaderWithDisallowThrowsAtFormatBuild-in-sequence-diagram.html">« C1a：手工表头的 build 期时机</a>
+    <a href="c2-duplicateNameAllowedByDefaultResolvesToLastIndex-in-sequence-diagram.html">C2：默认模式下重复列名不报错 »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "c1b",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据（自动探测表头 加 DISALLOW）
+  Test->>Format: setHeader() 无参 加 setSkipHeaderRecord(true) 加 setDuplicateHeaderMode(DISALLOW)
+  Test->>File: new StringReader(id,currency,id 1,USD,2)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Parser: When 调用待测行为 format.parse(reader)
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders() 取出formatHeader长度为0 走自动探测分支
+  Parser->>Lexer: nextToken() 读取表头行第一个字段
+  Lexer->>Lexer: parseSimpleToken逐字符扫描出id
+  Lexer-->>Parser: 返回TOKEN id
+  Lexer->>Lexer: 继续切出currency字段
+  Lexer->>Lexer: 切出第二个id字段并识别行尾CRLF
+  Lexer-->>Parser: 返回EORECORD id
+  Parser->>Parser: headerRecord赋值为该行三个值
+  Parser->>Parser: 映射循环第1轮id下标0写入headerMap
+  Parser->>Parser: 映射循环第2轮currency下标1写入headerMap
+  Parser->>Parser: 映射循环第3轮containsHeader为true命中661行
+  Parser-->>Test: 在666至668行throw IllegalArgumentException
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Parser: Then 断言异常类型与消息片段
+  Test->>Parser: assertThrows核对类型为IllegalArgumentException
+  Test->>Parser: 断言消息包含duplicate name
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader() 无参 加 setSkipHeaderRecord(true) 加 setDuplicateHeaderMode(DISALLOW)",
+      code: "HeadersCharacterizationTest.java:211-212",
+      stmt: 'final CSVFormat format = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true)\n    .setDuplicateHeaderMode(DuplicateHeaderMode.DISALLOW).get();',
+      why: "<b>Given</b>：<code>setHeader()</code> 不传参数——<code>builder.headers</code> 被设为<b>长度为0的数组</b>（不是 <code>null</code>），这会在 <code>createHeaders()</code> 里触发\"自动探测首行为表头\"分支。注意这一步的 <code>builder.get()</code> 本身不会抛错：<code>validate()</code>（<code>CSVFormat.java:2791</code>）只校验<b>手工</b>表头（长度非0的数组），长度为0的自动探测表头在 build 期完全看不到。",
+      vars: { "format.headers": "String[0]（长度为0，触发自动探测）", "format.duplicateHeaderMode": "DISALLOW" } },
+    { phase: "given", label: "new StringReader(id,currency,id 1,USD,2)",
+      code: "HeadersCharacterizationTest.java:213-214",
+      stmt: 'assertThrows(IllegalArgumentException.class,\n    () -> format.parse(new StringReader("id,currency,id\\r\\n1,USD,2\\r\\n")));',
+      why: "虚拟文件首行本身就写着重复的列名 <code>id,currency,id</code>，第二行是数据 <code>1,USD,2</code>。提前剧透：第二行会从未被读取。",
+      vars: { csv: '"id,currency,id\\r\\n1,USD,2\\r\\n"（虚拟文件内容）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207-2208",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException {\n    return CSVParser.builder().setReader(reader).setFormat(this).get();\n}",
+      why: "<b>When</b>：调用待测入口，内部委托给 <code>CSVParser.Builder.get()</code>，最终进入私有构造函数（<code>CSVParser.java:524</code>），其第 <b>528</b> 行立刻调用 <code>createHeaders()</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders() 取出formatHeader长度为0 走自动探测分支",
+      code: "CSVParser.java:631, 635",
+      stmt: "final String[] formatHeader = format.getHeader(); // String[0]\nif (formatHeader.length == 0) { // 进入",
+      why: "长度为 0 触发自动探测分支（<code>635-641</code>）——表头将从文件首行读取，<code>setSkipHeaderRecord(true)</code> 在这个分支里根本不起作用（与 A2b 同样的现象）。",
+      vars: { formatHeader: "String[0]" } },
+    { phase: "when", label: "nextToken() 读取表头行第一个字段",
+      code: "CSVParser.java:637 → Lexer.java:256",
+      stmt: "final CSVRecord nextRecord = nextRecord(); // 内部驱动 lexer.nextToken()",
+      why: "637 行主动读了一条记录——这就是\"表头行\"，它发生在 <code>CSVParser</code> 构造期间，早于测试代码能看到的任何东西。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken逐字符扫描出id",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：i d ',' → isDelimiter(',') 命中",
+      why: "下钻到字符级（本页仅在这一行表头展开一次；数据行永远不会走到这里）：逐字符扫描第一个字段，遇逗号结束。",
+      vars: { "当前字符缓冲": '"id"' } },
+    { phase: "when", label: "返回TOKEN id",
+      code: "Lexer.java:437",
+      stmt: 'token.type = TOKEN; token.content.append("id");',
+      why: "第一个表头字段切出。",
+      vars: {} },
+    { phase: "when", label: "继续切出currency字段",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：c u r r e n c y ',' → 遇逗号结束",
+      why: "第二个字段同样走逐字符扫描，这里折叠展示结果。",
+      vars: { "当前字符缓冲": '"currency"' } },
+    { phase: "when", label: "切出第二个id字段并识别行尾CRLF",
+      code: "Lexer.java:437, 475",
+      stmt: "// 逐字符读取：i d → 遇 \\r\\n，readEndOfLine 识别行结束",
+      why: "第三个字段又是 <code>\"id\"</code>——此刻 <code>Lexer</code> 只管切分文本，并不知道\"重复\"这件事；重复判定要等到后面的映射循环。",
+      vars: { "当前字符缓冲": '"id"' } },
+    { phase: "when", label: "返回EORECORD id",
+      code: "Lexer.java:437",
+      stmt: 'token.type = EORECORD; token.content.append("id");',
+      why: "三个字段连带\"行结束\"标记一起切出，表头行整行已被消费——文件读取指针已经移到第二行开头，但第二行尚未被读。",
+      vars: { "nextRecord.values": '["id", "currency", "id"]' } },
+    { phase: "when", label: "headerRecord赋值为该行三个值",
+      code: "CSVParser.java:639",
+      stmt: "headerRecord = nextRecord.values();",
+      why: "表头行文本正式转为 <code>headerRecord</code> 数组，接下来进入 <b>655-678 行的映射循环</b>——这段循环同时承担\"建映射\"与\"查重复/查空名\"两件事。",
+      vars: { headerRecord: '["id", "currency", "id"]' } },
+    { phase: "when", label: "映射循环第1轮id下标0写入headerMap",
+      code: "CSVParser.java:657, 661, 671-672",
+      stmt: "// i=0, header=\"id\"：blankHeader=false；containsHeader = headerMap.containsKey(\"id\") = false\nheaderMap.put(\"id\", 0);",
+      why: "第一次见到 <code>\"id\"</code>，<code>headerMap</code> 里还没有这个 key，<code>containsHeader</code> 为 <code>false</code>，正常写入。",
+      vars: { headerMap: "{id=0}" } },
+    { phase: "when", label: "映射循环第2轮currency下标1写入headerMap",
+      code: "CSVParser.java:661, 671-672",
+      stmt: "// i=1, header=\"currency\"：containsHeader = headerMap.containsKey(\"currency\") = false\nheaderMap.put(\"currency\", 1);",
+      why: "同理，<code>currency</code> 是新 key，正常写入。",
+      vars: { headerMap: "{id=0, currency=1}" } },
+    { phase: "when", label: "映射循环第3轮containsHeader为true命中661行",
+      code: "CSVParser.java:661",
+      stmt: "// i=2, header=\"id\"：blankHeader=false\nfinal boolean containsHeader = headerMap.containsKey(\"id\"); // true",
+      why: "第三次又是 <code>\"id\"</code>——因为非空名，<code>containsHeader</code> 直接查 <code>headerMap.containsKey(header)</code>（不是空名场景下 <code>observedMissing</code> 那条分支，那是 C3b 的逻辑），结果为 <code>true</code>。",
+      vars: { "containsHeader（第3轮）": "true" } },
+    { phase: "when", label: "在666至668行throw IllegalArgumentException",
+      code: "CSVParser.java:662-668",
+      stmt: 'final DuplicateHeaderMode headerMode = format.getDuplicateHeaderMode(); // DISALLOW\nfinal boolean duplicatesAllowed = false;\nif (containsHeader && !duplicatesAllowed && !(blankHeader && emptyDuplicatesAllowed)) {\n    throw new IllegalArgumentException(String.format(\n        "The header contains a duplicate name: \\"%s\\" in %s. ...", header, Arrays.toString(headerRecord)));\n}',
+      why: "三个条件全部为真：有重复、不允许重复、也不满足\"空名豁免\"——抛出 <b>IllegalArgumentException</b>。这一切都发生在 <code>CSVParser</code> 私有构造函数第 528 行 <code>createHeaders()</code> 返回之前，<b>数据行 <code>1,USD,2</code> 从未被 <code>Lexer</code> 碰过</b>——这正是\"在读第一条数据记录之前报错\"的现成先例。",
+      vars: { "异常类型": "IllegalArgumentException", "抛出时机": "format.parse() 内部（CSVParser 构造期）", "数据行1,USD,2": "从未被读取" } },
+    { phase: "then", label: "assertThrows核对类型为IllegalArgumentException",
+      code: "HeadersCharacterizationTest.java:213-214",
+      stmt: 'final IllegalArgumentException e = assertThrows(IllegalArgumentException.class,\n    () -> format.parse(new StringReader("id,currency,id\\r\\n1,USD,2\\r\\n")));',
+      why: "<b>Then</b>：异常其实已经在上一步抛出；<code>assertThrows</code> 接住它并核对类型，期望与实际都是 <code>IllegalArgumentException</code>——与 C1a 完全相同的异常类型，但来自完全不同的调用链。",
+      vars: {} },
+    { phase: "then", label: "断言消息包含duplicate name",
+      code: "HeadersCharacterizationTest.java:215",
+      stmt: 'assertTrue(e.getMessage().contains("duplicate name"));',
+      why: "C1b 钉住的事实：文件表头的重复校验发生在 <code>format.parse()</code> 内部的 <code>CSVParser.createHeaders()</code>（<code>CSVParser.java:661-668</code>），而且天然早于任何数据记录被读取——这就是 <code>setRequiredHeaders</code> 想要的\"读第一条记录之前报错\"的现成先例（见 ch02-1-3 第3节候选②）。",
+      vars: {} },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

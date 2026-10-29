@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C3a · 空列名在 allowMissingColumnNames(true) 下被映射为合法 key · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← C 组导航</a></div>
+  <header class="page-header">
+    <h1>C3a · 空列名在 setAllowMissingColumnNames(true) 下不报错，"" 本身成为一个合法的 key</h1>
+    <p class="subtitle">HeadersCharacterizationTest.DuplicateAndBlankHeaders#blankHeaderNameIsMappedWhenMissingColumnNamesAllowed（:232-241）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件，第一步会是 <code>Files.newBufferedReader(path)</code> 读取一个首行写着 <code>currency,,amount</code> 的 <code>.csv</code> 文件（中间那一列的列名就是空的）；
+    这里用 <code>new StringReader("currency,,amount\r\nUSD,100,2026-01-01\r\n")</code> 等价地扮演该文件角色。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-c/c3a-blankHeaderNameIsMappedWhenMissingColumnNamesAllowed.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="c2-duplicateNameAllowedByDefaultResolvesToLastIndex-in-sequence-diagram.html">« C2：重复列名命中最后一个</a>
+    <a href="c3b-duplicateBlankHeadersWithDisallowThrowsAtParserCreation-in-sequence-diagram.html">C3b：重复空列名 + DISALLOW 抛错 »</a>
+  </nav>
+  <nav class="test-nav">
+    <span class="disabled">对照组：C3b 用几乎相同的空列名场景，但两个空名 + DISALLOW 会抛错</span>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "c3a",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据（允许空列名）
+  Test->>Format: setHeader() 加 setSkipHeaderRecord 加 setAllowMissingColumnNames true
+  Test->>File: new StringReader(currency 空 amount USD 100 日期)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为 parseRecords
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders() 走自动探测分支
+  Parser->>Lexer: nextToken() 读取表头行第一个字段currency
+  Lexer->>Lexer: parseSimpleToken逐字符扫描出currency遇逗号结束
+  Lexer->>Lexer: 第二个字段连续两个逗号之间无字符得到空字符串
+  Lexer->>Lexer: 第三个字段扫描出amount并识别行尾CRLF
+  Lexer-->>Parser: 返回EORECORD 表头行三个字段currency空amount
+  Parser->>Parser: headerRecord赋值为currency空字符串amount
+  Parser->>Parser: 映射循环第1轮currency下标0写入headerMap
+  Parser->>Parser: 映射循环第2轮isBlank返回true且allowMissingColumnNames为true不抛错
+  Parser->>Parser: 第2轮header非null headerMap.put空字符串下标1
+  Parser->>Parser: 映射循环第3轮amount下标2写入headerMap
+  Test->>Parser: parser.getRecords 读取数据行
+  Parser->>Rec: 生成第1条记录 values为USD 100 日期
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 断言get空字符串按名取值等于100
+  Test->>Parser: 另开一次解析，断言headerMap containsKey空字符串
+  Test->>Parser: 断言headerMap get空字符串等于下标1
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader() 加 setSkipHeaderRecord 加 setAllowMissingColumnNames true",
+      code: "HeadersCharacterizationTest.java:233-234",
+      stmt: 'final CSVFormat format = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true)\n    .setAllowMissingColumnNames(true).get();',
+      why: "<b>Given</b>：自动探测表头（<code>setHeader()</code> 无参）之外，额外打开了 <code>allowMissingColumnNames</code>（<code>CSVFormat.java:352</code> 的 setter）。这是\"空列名不报错\"的唯一开关——默认值是 <code>false</code>。",
+      vars: { "format.allowMissingColumnNames": "true（默认 false）" } },
+    { phase: "given", label: "new StringReader(currency 空 amount USD 100 日期)",
+      code: "HeadersCharacterizationTest.java:235",
+      stmt: 'final List<CSVRecord> records =\n    parseRecords(format, "currency,,amount\\r\\nUSD,100,2026-01-01\\r\\n");',
+      why: "表头行三个字段是 <code>currency</code>、<b>空字符串</b>、<code>amount</code>——中间那一列的列名就是空的，这是本测试要验证的现状。",
+      vars: { csv: '"currency,,amount\\r\\nUSD,100,2026-01-01\\r\\n"（虚拟文件内容）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207 → CSVParser.java:524-528",
+      stmt: "this.headers = createHeaders();",
+      why: "<b>When</b>：进入构造函数，照例调用 <code>createHeaders()</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders() 走自动探测分支",
+      code: "CSVParser.java:631, 635",
+      stmt: "final String[] formatHeader = format.getHeader(); // String[0]\nif (formatHeader.length == 0) { // 进入",
+      why: "与 C2、C1b 相同，自动探测分支从文件首行读取表头。",
+      vars: { formatHeader: "String[0]" } },
+    { phase: "when", label: "nextToken() 读取表头行第一个字段currency",
+      code: "CSVParser.java:637 → Lexer.java:256",
+      stmt: "final CSVRecord nextRecord = nextRecord();",
+      why: "构造期间读取表头行——本页唯一一次展开字符级细节。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken逐字符扫描出currency遇逗号结束",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：c u r r e n c y ',' → isDelimiter(',') 命中",
+      why: "第一个字段正常切出 <code>\"currency\"</code>。",
+      vars: { "当前字符缓冲": '"currency"' } },
+    { phase: "when", label: "第二个字段连续两个逗号之间无字符得到空字符串",
+      code: "Lexer.java:437",
+      stmt: "// 紧接着又是 ',' → 两个逗号之间没有任何字符 → 切出空字符串 \"\"",
+      why: "关键细节：<code>Lexer</code> 并不会跳过\"空列\"，它照常切出一个<b>长度为0的字符串</b>——这就是\"空列名\"在字符层面的真实样子。",
+      vars: { "当前字符缓冲": '""（空字符串）' } },
+    { phase: "when", label: "第三个字段扫描出amount并识别行尾CRLF",
+      code: "Lexer.java:437, 475",
+      stmt: "// 逐字符读取：a m o u n t → 遇 \\r\\n，readEndOfLine 识别行结束",
+      why: "第三个字段正常切出 <code>\"amount\"</code>，行尾一起返回。",
+      vars: { "当前字符缓冲": '"amount"' } },
+    { phase: "when", label: "返回EORECORD 表头行三个字段currency空amount",
+      code: "Lexer.java:437",
+      stmt: 'token.type = EORECORD;',
+      why: "表头行三个字段（含中间的空字符串）全部切出。",
+      vars: { "nextRecord.values": '["currency", "", "amount"]' } },
+    { phase: "when", label: "headerRecord赋值为currency空字符串amount",
+      code: "CSVParser.java:639",
+      stmt: "headerRecord = nextRecord.values();",
+      why: "进入 655-678 行映射循环，开始逐列判断。",
+      vars: { headerRecord: '["currency", "", "amount"]' } },
+    { phase: "when", label: "映射循环第1轮currency下标0写入headerMap",
+      code: "CSVParser.java:657, 661, 671-672",
+      stmt: "// i=0, header=\"currency\"：blankHeader = CSVFormat.isBlank(\"currency\") = false\nheaderMap.put(\"currency\", 0);",
+      why: "<code>isBlank</code>（<code>CSVFormat.java:1480-1482</code>：<code>value == null || value.trim().isEmpty()</code>）对 <code>\"currency\"</code> 返回 <code>false</code>，走正常列名流程。",
+      vars: { headerMap: "{currency=0}" } },
+    { phase: "when", label: "映射循环第2轮isBlank返回true且allowMissingColumnNames为true不抛错",
+      code: "CSVParser.java:657-658",
+      stmt: "// i=1, header=\"\"：blankHeader = CSVFormat.isBlank(\"\") = true\nif (blankHeader && !format.getAllowMissingColumnNames()) { // 不进入，因为本测试设了 true\n    throw ...\n}",
+      why: "空字符串的 <code>trim().isEmpty()</code> 为 <code>true</code>，<code>blankHeader</code> 判定为 <code>true</code>。但因为 <code>allowMissingColumnNames</code> 是 <code>true</code>，<code>658</code> 行的条件整体为假——<b>不抛错</b>（对照 R-C4：若不设这个开关，这里就会抛 <code>\"A header name is missing in ...\"</code>）。",
+      vars: { blankHeader: "true", "格式化为false与true豁免": "format.getAllowMissingColumnNames() == true，不抛错" } },
+    { phase: "when", label: "第2轮header非null headerMap.put空字符串下标1",
+      code: "CSVParser.java:670-676",
+      stmt: 'observedMissing |= blankHeader; // observedMissing 变为 true\nif (header != null) { // ""（空字符串）不是 null，条件为真\n    headerMap.put(header, Integer.valueOf(i)); // headerMap.put("", 1)\n    headerNames.add(header);\n}',
+      why: "关键细节：<b>空字符串 <code>\"\"</code> 本身不是 <code>null</code></b>，所以 <code>671</code> 行的判断为真——<code>\"\"</code> 被当作一个<b>正常、合法的 key</b> 写进 <code>headerMap</code>，映射到下标 <code>1</code>。顺带把 <code>observedMissing</code> 置为 <code>true</code>（这个标志位在 C3b 会派上用场）。",
+      vars: { headerMap: '{currency=0, ""=1}', observedMissing: "true" } },
+    { phase: "when", label: "映射循环第3轮amount下标2写入headerMap",
+      code: "CSVParser.java:657, 661, 671-672",
+      stmt: "// i=2, header=\"amount\"：blankHeader=false，containsHeader=headerMap.containsKey(\"amount\")=false\nheaderMap.put(\"amount\", 2);",
+      why: "最后一列是正常列名，照常写入下标 2。映射循环结束，<code>headerMap</code> 定案为三个 key（包括那个空字符串 key）。",
+      vars: { headerMap: '{currency=0, ""=1, amount=2}' } },
+    { phase: "when", label: "parser.getRecords 读取数据行",
+      code: "CSVParser.java:795, 915",
+      stmt: "public List<CSVRecord> getRecords() { ... }",
+      why: "表头世界已经定案，现在才开始惰性读取数据记录。",
+      vars: {} },
+    { phase: "when", label: "生成第1条记录 values为USD 100 日期",
+      code: "CSVParser.java:594-602（同上流程，不再展开字符级细节）",
+      stmt: '// 数据行 "USD,100,2026-01-01" 走与表头行相同的 Lexer 流程，这里折叠\naddRecordValue(...); // values = ["USD", "100", "2026-01-01"]',
+      why: "数据行与表头行走同一套 <code>Lexer</code> 流程，本页已展开过一次，这里不再重复。这条记录持有包含空字符串 key 的 <code>headerMap</code> 引用。",
+      vars: { "records[0].values": '["USD", "100", "2026-01-01"]' } },
+    { phase: "then", label: "断言get空字符串按名取值等于100",
+      code: "HeadersCharacterizationTest.java:236",
+      stmt: 'assertEquals("100", records.get(0).get(""));',
+      why: "<b>Then</b>：<code>get(\"\")</code> 走 <code>headerMap.get(\"\")</code> 取到下标 <code>1</code>，再取 <code>values[1]</code> 即 <code>\"100\"</code>——空字符串作为 key 完全走通了正常的按名取值流程，没有任何特殊处理。",
+      vars: {} },
+    { phase: "then", label: "另开一次解析，断言headerMap containsKey空字符串",
+      code: "HeadersCharacterizationTest.java:237-238",
+      stmt: 'try (CSVParser parser = format.parse(new StringReader("currency,,amount\\r\\nUSD,100,2026-01-01\\r\\n"))) {\n    assertTrue(parser.getHeaderMap().containsKey(""));',
+      why: "测试额外开了第二次 <code>parse</code>（如实画出，未合并），直接验证 <code>\"\"</code> 确实是 <code>headerMap</code> 的一个 key，不是什么都没发生的巧合。",
+      vars: {} },
+    { phase: "then", label: "断言headerMap get空字符串等于下标1",
+      code: "HeadersCharacterizationTest.java:239",
+      stmt: 'assertEquals(Integer.valueOf(1), parser.getHeaderMap().get(""));',
+      why: "C3a 钉住的事实：<code>allowMissingColumnNames(true)</code> 下，空列名不仅不报错，\"\" 还会成为一个可正常用于 <code>get(String)</code> 的 key。下一页 C3b 看如果出现<b>两个</b>空列名、并且设了 <code>DISALLOW</code>，会在哪里、怎么判定\"重复\"。",
+      vars: { "parser2.getHeaderMap().get(\"\")": "1" } },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

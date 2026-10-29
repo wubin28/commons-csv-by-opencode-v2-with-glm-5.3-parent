@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C2 · 默认 ALLOW_ALL 下重复列名不报错，按名取值命中最后一列 · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← C 组导航</a></div>
+  <header class="page-header">
+    <h1>C2 · 默认模式（ALLOW_ALL）下重复列名不报错；headerMap.put 覆盖写入，按名取值命中最后一个同名列</h1>
+    <p class="subtitle">HeadersCharacterizationTest.DuplicateAndBlankHeaders#duplicateNameAllowedByDefaultResolvesToLastIndex（:220-228）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件，第一步会是 <code>Files.newBufferedReader(path)</code> 读取一个首行写着 <code>id,currency,id</code> 的 <code>.csv</code> 文件；
+    这里用 <code>new StringReader("id,currency,id\r\n1,USD,2\r\n")</code> 等价地扮演该文件角色。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-c/c2-duplicateNameAllowedByDefaultResolvesToLastIndex.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="c1b-duplicateFileHeaderWithDisallowThrowsAtParserCreation-in-sequence-diagram.html">« C1b：DISALLOW 下 parse 期抛错</a>
+    <a href="c3a-blankHeaderNameIsMappedWhenMissingColumnNamesAllowed-in-sequence-diagram.html">C3a：空列名的映射 »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "c2",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+  participant Rec as CSVRecord
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据（未设置duplicateHeaderMode，沿用默认ALLOW_ALL）
+  Test->>Format: setHeader() 无参 加 setSkipHeaderRecord(true) get
+  Test->>File: new StringReader(id,currency,id 1,USD,2)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Rec: When 调用待测行为 parseRecords
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders() 走自动探测分支
+  Parser->>Lexer: nextToken() 读取表头行第一个字段
+  Lexer->>Lexer: parseSimpleToken逐字符扫描出id
+  Lexer->>Lexer: 继续切出currency字段
+  Lexer->>Lexer: 切出第二个id字段并识别行尾CRLF
+  Lexer-->>Parser: 返回EORECORD 表头行三个字段
+  Parser->>Parser: headerRecord赋值为id currency id
+  Parser->>Parser: 映射循环第1轮id下标0写入headerMap
+  Parser->>Parser: 映射循环第2轮currency下标1写入headerMap
+  Parser->>Parser: 映射循环第3轮duplicatesAllowed为true不抛错
+  Parser->>Parser: headerMap.put第二次id下标2覆盖写入
+  Test->>Parser: parser.getRecords() 读取数据行
+  Parser->>Rec: 生成第1条记录 values为1 USD 2
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Rec: Then 断言实际结果与期望结果
+  Test->>Rec: 断言records size等于1
+  Test->>Rec: 断言get id按名取值等于2
+  Test->>Parser: 另开一次解析，断言getHeaderMap get id等于下标2
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader() 无参 加 setSkipHeaderRecord(true) get",
+      code: "HeadersCharacterizationTest.java:221",
+      stmt: "final CSVFormat format = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).get();",
+      why: "<b>Given</b>：这里<b>没有</b>调用 <code>setDuplicateHeaderMode(...)</code>——<code>duplicateHeaderMode</code> 保持 <code>Builder.create()</code> 的默认值 <code>ALLOW_ALL</code>（<code>CSVFormat.java:221</code>）。这是本测试能通过（不抛错）的直接原因。",
+      vars: { "format.duplicateHeaderMode": "ALLOW_ALL（默认值，未显式设置）" } },
+    { phase: "given", label: "new StringReader(id,currency,id 1,USD,2)",
+      code: "HeadersCharacterizationTest.java:222",
+      stmt: 'final List<CSVRecord> records = parseRecords(format, "id,currency,id\\r\\n1,USD,2\\r\\n");',
+      why: "表头行仍然写着重复的 <code>id,currency,id</code>——与 C1b 完全一样的输入，唯一区别是本测试没设 <code>DISALLOW</code>。",
+      vars: { csv: '"id,currency,id\\r\\n1,USD,2\\r\\n"（虚拟文件内容）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207 → CSVParser.java:524-528",
+      stmt: "public CSVParser parse(final Reader reader) throws IOException { ... }\n// 内部: this.headers = createHeaders();",
+      why: "<b>When</b>：进入构造函数，照例第 528 行调用 <code>createHeaders()</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders() 走自动探测分支",
+      code: "CSVParser.java:631, 635",
+      stmt: "final String[] formatHeader = format.getHeader(); // String[0]\nif (formatHeader.length == 0) { // 进入",
+      why: "与 C1b 相同，<code>setHeader()</code> 无参触发自动探测分支，表头将从文件首行读取。",
+      vars: { formatHeader: "String[0]" } },
+    { phase: "when", label: "nextToken() 读取表头行第一个字段",
+      code: "CSVParser.java:637 → Lexer.java:256",
+      stmt: "final CSVRecord nextRecord = nextRecord();",
+      why: "构造期间主动读取表头行——这是本次解析第一次、也是本页唯一一次展开字符级细节的地方。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken逐字符扫描出id",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：i d ',' → isDelimiter(',') 命中",
+      why: "逐字符扫描第一个字段，遇逗号结束，切出 <code>\"id\"</code>。",
+      vars: { "当前字符缓冲": '"id"' } },
+    { phase: "when", label: "继续切出currency字段",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：c u r r e n c y ',' → 遇逗号结束",
+      why: "第二个字段同样走逐字符扫描，这里折叠展示结果，切出 <code>\"currency\"</code>。",
+      vars: { "当前字符缓冲": '"currency"' } },
+    { phase: "when", label: "切出第二个id字段并识别行尾CRLF",
+      code: "Lexer.java:437, 475",
+      stmt: "// 逐字符读取：i d → 遇 \\r\\n，readEndOfLine 识别行结束",
+      why: "第三个字段又是 <code>\"id\"</code>——<code>Lexer</code> 这一层并不关心\"重复\"，只负责把文本切开。",
+      vars: { "当前字符缓冲": '"id"' } },
+    { phase: "when", label: "返回EORECORD 表头行三个字段",
+      code: "Lexer.java:437",
+      stmt: 'token.type = EORECORD; // 表头行读取完毕',
+      why: "表头行三个字段全部切出，行尾标记一起返回。",
+      vars: { "nextRecord.values": '["id", "currency", "id"]' } },
+    { phase: "when", label: "headerRecord赋值为id currency id",
+      code: "CSVParser.java:639",
+      stmt: "headerRecord = nextRecord.values();",
+      why: "进入 655-678 行映射循环，这段循环同时做\"建映射\"和\"查重复\"。",
+      vars: { headerRecord: '["id", "currency", "id"]' } },
+    { phase: "when", label: "映射循环第1轮id下标0写入headerMap",
+      code: "CSVParser.java:661, 671-672",
+      stmt: "// i=0, header=\"id\"：containsHeader = headerMap.containsKey(\"id\") = false\nheaderMap.put(\"id\", 0);",
+      why: "第一次见到 <code>\"id\"</code>，正常写入下标 0。",
+      vars: { headerMap: "{id=0}" } },
+    { phase: "when", label: "映射循环第2轮currency下标1写入headerMap",
+      code: "CSVParser.java:671-672",
+      stmt: "// i=1, header=\"currency\"\nheaderMap.put(\"currency\", 1);",
+      why: "<code>currency</code> 是新 key，正常写入下标 1。",
+      vars: { headerMap: "{id=0, currency=1}" } },
+    { phase: "when", label: "映射循环第3轮duplicatesAllowed为true不抛错",
+      code: "CSVParser.java:662-665",
+      stmt: "final DuplicateHeaderMode headerMode = format.getDuplicateHeaderMode(); // ALLOW_ALL\nfinal boolean duplicatesAllowed = headerMode == DuplicateHeaderMode.ALLOW_ALL; // true\nif (containsHeader && !duplicatesAllowed && ...) { // 不进入，因为 duplicatesAllowed 为 true",
+      why: "第三次又是 <code>\"id\"</code>，<code>containsHeader</code> 同样为 <code>true</code>——但 <code>665</code> 行的 <code>!duplicatesAllowed</code> 这次是 <code>false</code>，整个 <code>if</code> 判断为假，<b>不抛错</b>，循环继续往下走到 <code>671</code> 行。这与 C1b 唯一的差异就在这一行判断的结果。",
+      vars: { "containsHeader（第3轮）": "true", duplicatesAllowed: "true（ALLOW_ALL）" } },
+    { phase: "when", label: "headerMap.put第二次id下标2覆盖写入",
+      code: "CSVParser.java:671-672",
+      stmt: "// header != null，照常执行\nheaderMap.put(\"id\", 2); // Explicit boxing is intentional",
+      why: "关键的一刻：<code>Map.put</code> 对已存在的 key 会<b>覆盖</b>旧值——<code>headerMap</code> 里的 <code>\"id\"</code> 从 <code>0</code> 变成 <code>2</code>。注意循环结束后 <code>headerMap</code> 只剩两个 key（<code>id</code>、<code>currency</code>），但 <code>headerRecord</code> 物理上有三列——重复列名下 <code>headerMap</code> 是一个<b>有损映射</b>。",
+      vars: { headerMap: "{id=2, currency=1}（从 {id=0, currency=1} 覆盖而来）" } },
+    { phase: "when", label: "parser.getRecords() 读取数据行",
+      code: "CSVParser.java:795, 915",
+      stmt: "public List<CSVRecord> getRecords() { ... }",
+      why: "表头世界已经定案（<code>headerMap</code> 已经是覆盖后的版本），现在才开始惰性读取数据记录。",
+      vars: {} },
+    { phase: "when", label: "生成第1条记录 values为1 USD 2",
+      code: "CSVParser.java:594-602（同上流程，不再展开字符级细节）",
+      stmt: '// 数据行 "1,USD,2" 走与表头行相同的 Lexer 流程，这里折叠\naddRecordValue(...); // values = ["1", "USD", "2"]',
+      why: "数据行与表头行走的是同一套 <code>Lexer</code> 流程，本页已在表头行展开过一次，这里不再重复。这条记录持有同一个（已覆盖过的）<code>headerMap</code> 引用。",
+      vars: { "records[0].values": '["1", "USD", "2"]', "records.size": "1" } },
+    { phase: "then", label: "断言records size等于1",
+      code: "HeadersCharacterizationTest.java:223",
+      stmt: "assertEquals(1, records.size());",
+      why: "<b>Then</b>：只有一条数据记录（表头行已被自动探测分支消费掉）。",
+      vars: {} },
+    { phase: "then", label: "断言get id按名取值等于2",
+      code: "HeadersCharacterizationTest.java:224",
+      stmt: 'assertEquals("2", records.get(0).get("id"));',
+      why: "<code>get(\"id\")</code> 走 <code>headerMap.get(\"id\")</code>，取到的是<b>覆盖后</b>的下标 <code>2</code>，再取 <code>values[2]</code> 即 <code>\"2\"</code>——命中的是\"最后一个\"同名列，与 <code>CSVRecord.java:108</code> 的 Javadoc（\"only the last occurrence is returned\"）一致。",
+      vars: {} },
+    { phase: "then", label: "另开一次解析，断言getHeaderMap get id等于下标2",
+      code: "HeadersCharacterizationTest.java:225-227",
+      stmt: 'try (CSVParser parser = format.parse(new StringReader("id,currency,id\\r\\n1,USD,2\\r\\n"))) {\n    assertEquals(Integer.valueOf(2), parser.getHeaderMap().get("id"));\n}',
+      why: "测试额外开了第二次 <code>parse</code>（如实画出，未合并），直接验证 <code>headerMap</code> 里 <code>\"id\"</code> 的下标确实是覆盖后的 <code>2</code>。C2 钉住的事实：重复列名下 <code>headerMap</code> 是有损映射，<code>keySet()</code> 判断\"列是否存在\"没问题，但不能据此断言\"物理上只有一列\"。",
+      vars: { "parser2.getHeaderMap().get(\"id\")": "2" } },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

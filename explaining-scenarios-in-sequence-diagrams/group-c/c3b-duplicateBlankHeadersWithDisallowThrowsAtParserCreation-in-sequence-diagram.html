@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C3b · 两个空列名 + DISALLOW：observedMissing 标志位判定重复，parse 期抛错 · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← C 组导航</a></div>
+  <header class="page-header">
+    <h1>C3b · 两个空列名 + DISALLOW：用 observedMissing 标志位判定"重复"，在 format.parse() 抛错</h1>
+    <p class="subtitle">HeadersCharacterizationTest.DuplicateAndBlankHeaders#duplicateBlankHeadersWithDisallowThrowsAtParserCreation（:245-251）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    若这是磁盘文件，第一步会是 <code>Files.newBufferedReader(path)</code> 读取一个首行写着 <code>currency,,</code> 的 <code>.csv</code> 文件（后两列的列名都是空的）；
+    这里用 <code>new StringReader("currency,,\r\nUSD,100\r\n")</code> 等价地扮演该文件角色。数据行 <code>USD,100</code> 从未被实际读取——异常在 <code>CSVParser</code> 构造期间建表头时就已抛出。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-c/c3b-duplicateBlankHeadersWithDisallowThrowsAtParserCreation.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <a href="c3a-blankHeaderNameIsMappedWhenMissingColumnNamesAllowed-in-sequence-diagram.html">« C3a：单个空列名被正常映射</a>
+    <span class="disabled">已是 C 组最后一个测试 »</span>
+  </nav>
+  <nav class="test-nav">
+    <span class="disabled">对照组：C1b 的重复判定靠 headerMap.containsKey(header)，本页的重复判定靠 observedMissing 标志位——两条不同的查重路径</span>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "c3b",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant File as 虚拟CSV文件(StringReader)
+  participant Format as CSVFormat
+  participant Parser as CSVParser
+  participant Lexer as Lexer
+
+  rect rgb(232, 245, 233)
+  Note over Test,File: Given 准备测试数据（允许空列名但禁止重复）
+  Test->>Format: setHeader 加 skipHeaderRecord 加 allowMissingColumnNames true 加 duplicateHeaderMode DISALLOW
+  Test->>File: new StringReader(currency 空 空 USD 100)
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Parser: When 调用待测行为 format.parse(reader)
+  Test->>Parser: format.parse(reader) 构造解析器
+  Parser->>Parser: createHeaders 走自动探测分支
+  Parser->>Lexer: nextToken 读取表头行第一个字段currency
+  Lexer->>Lexer: parseSimpleToken扫描出currency遇第一个逗号结束
+  Lexer->>Lexer: 两个逗号之间无字符得到第一个空字符串
+  Lexer->>Lexer: 第二个逗号之后到行尾无字符得到第二个空字符串并识别CRLF
+  Lexer-->>Parser: 返回EORECORD 表头行三个字段currency空空
+  Parser->>Parser: headerRecord赋值为currency空字符串空字符串
+  Parser->>Parser: 映射循环第1轮currency下标0写入headerMap
+  Parser->>Parser: 映射循环第2轮第一个空名observedMissing为false不抛错
+  Parser->>Parser: 第2轮之后observedMissing置为true 写入headerMap空字符串下标1
+  Parser->>Parser: 映射循环第3轮第二个空名观察observedMissing为true containsHeader为true
+  Parser-->>Test: 在666至668行throw IllegalArgumentException
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Parser: Then 断言异常类型与消息片段
+  Test->>Parser: assertThrows核对类型为IllegalArgumentException
+  Test->>Parser: 断言消息包含duplicate
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader 加 skipHeaderRecord 加 allowMissingColumnNames true 加 duplicateHeaderMode DISALLOW",
+      code: "HeadersCharacterizationTest.java:246-247",
+      stmt: 'final CSVFormat format = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true)\n    .setAllowMissingColumnNames(true).setDuplicateHeaderMode(DuplicateHeaderMode.DISALLOW).get();',
+      why: "<b>Given</b>：与 C3a 相比多开了一个 <code>setDuplicateHeaderMode(DISALLOW)</code>——空列名本身仍然被允许（<code>allowMissingColumnNames=true</code>），但\"两个空列名算不算重复\"现在要接受 <code>DISALLOW</code> 的检查。",
+      vars: { "format.allowMissingColumnNames": "true", "format.duplicateHeaderMode": "DISALLOW" } },
+    { phase: "given", label: "new StringReader(currency 空 空 USD 100)",
+      code: "HeadersCharacterizationTest.java:248-249",
+      stmt: 'assertThrows(IllegalArgumentException.class,\n    () -> format.parse(new StringReader("currency,,\\r\\nUSD,100\\r\\n")));',
+      why: "表头行 <code>currency,,</code> 被两个逗号切成<b>三列</b>：<code>\"currency\"</code>、<code>\"\"</code>、<code>\"\"</code>——后两列都是空列名。",
+      vars: { csv: '"currency,,\\r\\nUSD,100\\r\\n"（虚拟文件内容）' } },
+    { phase: "when", label: "format.parse(reader) 构造解析器",
+      code: "CSVFormat.java:2207 → CSVParser.java:524-528",
+      stmt: "this.headers = createHeaders();",
+      why: "<b>When</b>：进入构造函数，第 528 行调用 <code>createHeaders()</code>。",
+      vars: {} },
+    { phase: "when", label: "createHeaders 走自动探测分支",
+      code: "CSVParser.java:631, 635",
+      stmt: "final String[] formatHeader = format.getHeader(); // String[0]\nif (formatHeader.length == 0) { // 进入",
+      why: "同前几页，自动探测分支从文件首行读取表头。",
+      vars: { formatHeader: "String[0]" } },
+    { phase: "when", label: "nextToken 读取表头行第一个字段currency",
+      code: "CSVParser.java:637 → Lexer.java:256",
+      stmt: "final CSVRecord nextRecord = nextRecord();",
+      why: "构造期间读取表头行——本页唯一一次展开字符级细节；数据行 <code>USD,100</code> 不会被走到。",
+      vars: {} },
+    { phase: "when", label: "parseSimpleToken扫描出currency遇第一个逗号结束",
+      code: "Lexer.java:437",
+      stmt: "// 逐字符读取：c u r r e n c y ',' → isDelimiter(',') 命中",
+      why: "第一个字段正常切出 <code>\"currency\"</code>。",
+      vars: { "当前字符缓冲": '"currency"' } },
+    { phase: "when", label: "两个逗号之间无字符得到第一个空字符串",
+      code: "Lexer.java:437",
+      stmt: "// 紧接着又是 ',' → 两个逗号之间没有字符 → 切出空字符串",
+      why: "第二列是空字符串——与 C3a 相同的切分方式。",
+      vars: { "当前字符缓冲": '""（第1个空字符串）' } },
+    { phase: "when", label: "第二个逗号之后到行尾无字符得到第二个空字符串并识别CRLF",
+      code: "Lexer.java:437, 475",
+      stmt: "// 第2个逗号之后直到 \\r\\n 之间也没有字符 → 再切出一个空字符串",
+      why: "第三列<b>也</b>是空字符串——这一行一共有两个空列名，是本测试的关键输入。",
+      vars: { "当前字符缓冲": '""（第2个空字符串）' } },
+    { phase: "when", label: "返回EORECORD 表头行三个字段currency空空",
+      code: "Lexer.java:437",
+      stmt: 'token.type = EORECORD;',
+      why: "表头行三个字段（含两个空字符串）全部切出。",
+      vars: { "nextRecord.values": '["currency", "", ""]' } },
+    { phase: "when", label: "headerRecord赋值为currency空字符串空字符串",
+      code: "CSVParser.java:639",
+      stmt: "headerRecord = nextRecord.values();",
+      why: "进入 655-678 行映射循环。",
+      vars: { headerRecord: '["currency", "", ""]' } },
+    { phase: "when", label: "映射循环第1轮currency下标0写入headerMap",
+      code: "CSVParser.java:657, 661, 671-672",
+      stmt: "// i=0, header=\"currency\"：blankHeader=false，containsHeader=headerMap.containsKey(\"currency\")=false\nheaderMap.put(\"currency\", 0);",
+      why: "第一列是正常列名，照常写入下标 0。<code>observedMissing</code> 此刻仍是初始值 <code>false</code>。",
+      vars: { headerMap: "{currency=0}", observedMissing: "false（循环前的初始值）" } },
+    { phase: "when", label: "映射循环第2轮第一个空名observedMissing为false不抛错",
+      code: "CSVParser.java:657-661",
+      stmt: "// i=1, header=\"\"：blankHeader = CSVFormat.isBlank(\"\") = true\n// 658行：allowMissingColumnNames为true，不抛\n// 661行：containsHeader = blankHeader ? observedMissing : headerMap.containsKey(header);\n// 即 containsHeader = observedMissing = false（此刻还未置位）",
+      why: "<b>关键细节</b>：当 <code>blankHeader</code> 为 <code>true</code> 时，<code>661</code> 行判断\"是否重复\"<b>不查 <code>headerMap</code></b>，而是直接看 <code>observedMissing</code> 这个标志位的<b>当前值</b>——此刻它还是 <code>false</code>（还没见过任何空名），所以这第一个空名不算重复，<code>665</code> 行不抛错。",
+      vars: { blankHeader: "true", "containsHeader（第2轮，取自observedMissing）": "false" } },
+    { phase: "when", label: "第2轮之后observedMissing置为true 写入headerMap空字符串下标1",
+      code: "CSVParser.java:670-676",
+      stmt: 'observedMissing |= blankHeader; // observedMissing: false → true\nif (header != null) { // ""（空字符串）不是 null\n    headerMap.put(header, Integer.valueOf(1));\n    headerNames.add(header);\n}',
+      why: "处理完第一个空名后，<code>observedMissing</code> 被置为 <code>true</code>——\"已经见过一个空名\"的事实被记录下来，<b>不是</b>记在 <code>headerMap</code> 里（因为 <code>headerMap</code> 里现在确实有一个 <code>\"\"</code> key，但那是巧合，不是查重机制本身）。",
+      vars: { headerMap: '{currency=0, ""=1}', observedMissing: "true" } },
+    { phase: "when", label: "映射循环第3轮第二个空名观察observedMissing为true containsHeader为true",
+      code: "CSVParser.java:657-661",
+      stmt: "// i=2, header=\"\"：blankHeader = true\n// 658行：allowMissingColumnNames为true，不抛\n// 661行：containsHeader = blankHeader ? observedMissing : ...;\n// 即 containsHeader = observedMissing = true（已在上一轮被置位）",
+      why: "第二个空名再次触发 <code>661</code> 行的三元表达式，但这次 <code>observedMissing</code> 已经是 <code>true</code>——所以 <code>containsHeader</code> 直接得到 <code>true</code>，<b>完全没有查询 <code>headerMap</code></b>。这正是调试指南强调的细节：空名的\"是否重复\"判定用的是标志位，不是 map 查询，因为空名到底有没有真的 <code>put</code> 进 <code>headerMap</code> 还取决于 <code>allowMissingColumnNames</code>。",
+      vars: { "containsHeader（第3轮，取自observedMissing）": "true" } },
+    { phase: "when", label: "在666至668行throw IllegalArgumentException",
+      code: "CSVParser.java:662-668",
+      stmt: 'final DuplicateHeaderMode headerMode = format.getDuplicateHeaderMode(); // DISALLOW\nfinal boolean duplicatesAllowed = false;\nfinal boolean emptyDuplicatesAllowed = headerMode == DuplicateHeaderMode.ALLOW_EMPTY; // false，因为是DISALLOW不是ALLOW_EMPTY\nif (containsHeader && !duplicatesAllowed && !(blankHeader && emptyDuplicatesAllowed)) {\n    // true && true && !(true && false) = true && true && true → 抛出\n    throw new IllegalArgumentException(String.format(\n        "The header contains a duplicate name: \\"%s\\" in %s. ...", header, Arrays.toString(headerRecord)));\n}',
+      why: "三个条件全部成立：<code>containsHeader</code> 为真、<code>DISALLOW</code> 下 <code>duplicatesAllowed</code> 为假、并且模式是 <code>DISALLOW</code> 而不是 <code>ALLOW_EMPTY</code> 所以\"空名豁免\"也不适用——抛出 <b>IllegalArgumentException</b>。这一切同样发生在 <code>CSVParser</code> 构造期间，<b>数据行 <code>USD,100</code> 从未被读取</b>。",
+      vars: { "异常类型": "IllegalArgumentException", "抛出时机": "format.parse() 内部（CSVParser 构造期）", "数据行USD,100": "从未被读取" } },
+    { phase: "then", label: "assertThrows核对类型为IllegalArgumentException",
+      code: "HeadersCharacterizationTest.java:248-249",
+      stmt: 'final IllegalArgumentException e = assertThrows(IllegalArgumentException.class,\n    () -> format.parse(new StringReader("currency,,\\r\\nUSD,100\\r\\n")));',
+      why: "<b>Then</b>：异常其实已经在上一步抛出；<code>assertThrows</code> 接住它并核对类型。",
+      vars: {} },
+    { phase: "then", label: "断言消息包含duplicate",
+      code: "HeadersCharacterizationTest.java:250",
+      stmt: 'assertTrue(e.getMessage().contains("duplicate"));',
+      why: "C3b 钉住的事实：\"空名是否重复\"的判定走的是 <code>observedMissing</code> 标志位，而不是单纯查 <code>headerMap</code> 里有没有这个 key——这类细节决定了将来写 <code>setRequiredHeaders</code> 一类的新校验<b>不能假设 <code>headerMap.keySet()</code> 就是表头全集</b>。至此 C 组五个测试把\"重复/空列名容错\"在两条链路（手工/文件表头）、两个时机（build/parse 期）、以及两种查重机制（Set/标志位）上全部钉住。",
+      vars: {} },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

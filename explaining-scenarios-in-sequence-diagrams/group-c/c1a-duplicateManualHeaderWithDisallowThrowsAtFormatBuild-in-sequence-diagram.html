@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C1a · 手工表头重复 + DISALLOW：build 期抛错 · 时序图</title>
+<link rel="stylesheet" href="shared/sequence-player.css" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="crumbs"><a href="index.html">← C 组导航</a></div>
+  <header class="page-header">
+    <h1>C1a · 手工表头重复 + DISALLOW：异常在 builder.get()（build 期）就抛出</h1>
+    <p class="subtitle">HeadersCharacterizationTest.DuplicateAndBlankHeaders#duplicateManualHeaderWithDisallowThrowsAtFormatBuild（:200-206）</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button class="btn" id="btn-prev">← 上一步</button>
+      <button class="btn" id="btn-next">下一步 →</button>
+      <button class="btn" id="btn-reset">⟲ 重置</button>
+      <button class="btn" id="btn-play">▶ 自动播放</button>
+      <select class="speed" id="speed-select">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="jump-given">跳到 Given</button>
+      <button class="btn" id="jump-when">跳到 When</button>
+      <button class="btn" id="jump-then">跳到 Then</button>
+    </div>
+    <div class="group hide-in-presentation">
+      <button class="btn" id="export-png">导出整图 PNG</button>
+      <button class="btn" id="export-pdf">导出整图 PDF</button>
+      <button class="btn" id="export-step-png">导出当前步 PNG</button>
+    </div>
+    <div class="group">
+      <button class="btn primary" id="btn-present">🖥 演示模式（P）</button>
+    </div>
+    <div class="group">
+      <span class="phase-badge" id="phase-badge"></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div id="step-capture">
+      <div class="diagram-panel">
+        <div id="diagram-container"></div>
+      </div>
+      <div class="side-panel">
+        <h3>当前步解说</h3>
+        <div class="explain-box">
+          <div class="code-ref" id="explain-code"></div>
+          <pre class="stmt" id="explain-stmt"></pre>
+          <div class="why" id="explain-why"></div>
+        </div>
+        <h3>变量快照</h3>
+        <table class="vars"><thead><tr><th>变量</th><th>值</th></tr></thead><tbody id="vars-body"></tbody></table>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disk-file-note">
+    <b>本页没有"虚拟 CSV 文件"</b>：C1a 测试代码里从头到尾没有出现 <code>StringReader</code> 或任何 CSV 文本——它只构造了一个带重复列名的
+    <code>CSVFormat.Builder</code>，异常在 <code>builder.get()</code>（build 期）就已经抛出，<b>连 <code>CSVParser</code> 都还没被创建</b>，自然也没有文件可读。
+    对照下一页 <a href="c1b-duplicateFileHeaderWithDisallowThrowsAtParserCreation-in-sequence-diagram.html">C1b</a>：那里确实有一个虚拟文件，但异常同样发生在它的数据行被读取之前（在 <code>format.parse()</code> 内部建表头时）。
+  </div>
+
+  <a class="old-explainer-link" href="../../explaining-scenarios-in-html/group-c/c1a-duplicateManualHeaderWithDisallowThrowsAtFormatBuild.html">📖 查看该场景的文字版讲解（旧页面）</a>
+
+  <nav class="test-nav">
+    <span class="disabled">« 已是 C 组第一个测试</span>
+    <a href="c1b-duplicateFileHeaderWithDisallowThrowsAtParserCreation-in-sequence-diagram.html">C1b：同一错误、文件表头的时机 »</a>
+  </nav>
+</div>
+
+<script src="shared/sequence-player.js"></script>
+<script>
+const SCENARIO = {
+  id: "c1a",
+  diagramDefinition: `sequenceDiagram
+  participant Test as 测试方法
+  participant Builder as CSVFormat.Builder
+  participant Format as CSVFormat(构造中)
+
+  rect rgb(232, 245, 233)
+  Note over Test,Builder: Given 准备表头配置（没有虚拟CSV文件，这里从未创建 StringReader）
+  Test->>Builder: setHeader(id,currency,id) 写入含重复的手工表头
+  Test->>Builder: setDuplicateHeaderMode(DISALLOW) 关闭默认的ALLOW_ALL宽容
+  end
+
+  rect rgb(255, 244, 230)
+  Note over Test,Format: When 调用待测行为 builder.get()
+  Test->>Builder: 调用 builder.get() 触发构建
+  Builder->>Format: new CSVFormat(builder) 逐字段拷贝到1676行validate
+  Format->>Format: validate() 进入2791行header校验分支
+  Format->>Format: dupCheckSet.add(id) 第一次写入成功
+  Format->>Format: dupCheckSet.add(currency) 写入成功
+  Format->>Format: dupCheckSet.add(id) 第二次写入返回false
+  Format-->>Builder: 在2799行throw IllegalArgumentException
+  end
+
+  rect rgb(243, 230, 250)
+  Note over Test,Format: Then 断言异常类型与消息片段
+  Test->>Format: assertThrows核对类型为IllegalArgumentException
+  Test->>Format: 断言消息包含duplicate name
+  Test->>Format: 断言消息包含id
+  end
+`,
+  steps: [
+    { phase: "given", label: "setHeader(id,currency,id) 写入含重复的手工表头",
+      code: "HeadersCharacterizationTest.java:202",
+      stmt: 'CSVFormat.DEFAULT.builder().setHeader("id", "currency", "id")',
+      why: "<b>Given</b>：手工表头数组里第三个名字 <code>\"id\"</code> 与第一个重复——这不是笔误，是故意埋进去的重复列名。<code>Builder.setHeader(String...)</code>（<code>CSVFormat.java:627-630</code>）此刻只是把数组 <code>clone</code> 存进 <code>builder.headers</code>，还没有任何校验发生。",
+      vars: { "builder.headers": '["id", "currency", "id"]（手工指定，含重复）' } },
+    { phase: "given", label: "setDuplicateHeaderMode(DISALLOW) 关闭默认的ALLOW_ALL宽容",
+      code: "HeadersCharacterizationTest.java:203",
+      stmt: ".setDuplicateHeaderMode(DuplicateHeaderMode.DISALLOW).get());",
+      why: "<code>Builder.create()</code> 的默认值是 <code>ALLOW_ALL</code>（<code>CSVFormat.java:221</code>）——默认根本不检查重复表头。想让校验真正发生，必须像这里一样显式调 <code>setDuplicateHeaderMode</code>（<code>CSVFormat.java:486-488</code>）。配置到此齐备，引信已经上在 <code>get()</code> 上。",
+      vars: { "builder.duplicateHeaderMode": "DISALLOW（默认是 ALLOW_ALL）" } },
+    { phase: "when", label: "调用 builder.get() 触发构建",
+      code: "CSVFormat.java:327-328",
+      stmt: "public CSVFormat get() {\n    return new CSVFormat(this);\n}",
+      why: "<b>When</b>：这是测试 lambda 里实际调用的入口。注意此刻还没有任何 <code>CSVParser</code>、<code>Reader</code> 或 CSV 文本参与——纯粹是 <code>CSVFormat</code> 自身的构建过程。",
+      vars: {} },
+    { phase: "when", label: "new CSVFormat(builder) 逐字段拷贝到1676行validate",
+      code: "CSVFormat.java:1653-1676",
+      stmt: "private CSVFormat(final Builder builder) {\n    ... // 逐字段拷贝\n    validate();\n}",
+      why: "私有构造函数把 <code>builder</code> 的字段逐一拷到 <code>this</code>，最后一句固定调用 <code>validate()</code>——这是 build 期自我检查的唯一入口。",
+      vars: { "this.headers": '["id", "currency", "id"]', "this.duplicateHeaderMode": "DISALLOW" } },
+    { phase: "when", label: "validate() 进入2791行header校验分支",
+      code: "CSVFormat.java:2791",
+      stmt: "if (headers != null && duplicateHeaderMode != DuplicateHeaderMode.ALLOW_ALL) {",
+      why: "两个条件都满足（<code>headers</code> 非空、模式不是 <code>ALLOW_ALL</code>）才会进入这段重复校验——这正是为什么 C2（默认模式）同样配置却不会抛错的原因。",
+      vars: {} },
+    { phase: "when", label: "dupCheckSet.add(id) 第一次写入成功",
+      code: "CSVFormat.java:2792, 2797",
+      stmt: "final Set<String> dupCheckSet = new HashSet<>(headers.length);\n// 第1轮：dupCheckSet.add(\"id\") → true",
+      why: "用一个 <code>HashSet</code> 逐列记录已经见过的列名；<code>add</code> 返回 <code>true</code> 表示这是新名字，暂不抛错。",
+      vars: { dupCheckSet: '{"id"}' } },
+    { phase: "when", label: "dupCheckSet.add(currency) 写入成功",
+      code: "CSVFormat.java:2797",
+      stmt: "// 第2轮：dupCheckSet.add(\"currency\") → true",
+      why: "第二列 <code>currency</code> 同样是新名字，集合继续扩大。",
+      vars: { dupCheckSet: '{"id", "currency"}' } },
+    { phase: "when", label: "dupCheckSet.add(id) 第二次写入返回false",
+      code: "CSVFormat.java:2797",
+      stmt: "final boolean containsHeader = !dupCheckSet.add(blank ? \"\" : header);\n// 第3轮：header=\"id\"，add 返回 false → containsHeader == true",
+      why: "第三列又是 <code>\"id\"</code>，<code>HashSet.add</code> 对已存在的元素返回 <code>false</code>，取反后 <code>containsHeader</code> 变为 <code>true</code>——这就是\"发现重复\"的那一刻。",
+      vars: { "containsHeader（第3轮）": "true", dupCheckSet: '{"id", "currency"}（未变大）' } },
+    { phase: "when", label: "在2799行throw IllegalArgumentException",
+      code: "CSVFormat.java:2798-2801",
+      stmt: 'if (containsHeader && !(blank && emptyDuplicatesAllowed)) {\n    throw new IllegalArgumentException(String.format(\n        "The header contains a duplicate name: \\"%s\\" in %s. ...", header, Arrays.toString(headers)));\n}',
+      why: "<code>blank</code> 为 <code>false</code>（\"id\" 不是空名），所以 <code>DISALLOW</code> 下没有任何豁免——直接抛出。整个过程发生在 <b>build 期</b>：<code>CSVParser</code> 从未被创建，自然没有任何数据行被读取。",
+      vars: { "异常类型": "IllegalArgumentException", "抛出时机": "builder.get()（build 期）" } },
+    { phase: "then", label: "assertThrows核对类型为IllegalArgumentException",
+      code: "HeadersCharacterizationTest.java:201-203",
+      stmt: 'final IllegalArgumentException e = assertThrows(IllegalArgumentException.class,\n    () -> CSVFormat.DEFAULT.builder().setHeader("id", "currency", "id")\n        .setDuplicateHeaderMode(DuplicateHeaderMode.DISALLOW).get());',
+      why: "<b>Then</b>：被测行为其实已经在上一步炸过了；<code>assertThrows</code> 在这里执行 lambda、接住异常并核对类型，期望与实际都是 <code>IllegalArgumentException</code>。",
+      vars: {} },
+    { phase: "then", label: "断言消息包含duplicate name",
+      code: "HeadersCharacterizationTest.java:204",
+      stmt: 'assertTrue(e.getMessage().contains("duplicate name"));',
+      why: "只断言消息片段而不是全文——消息全文（含修复提示 <code>setDuplicateHeaderMode()</code>）随版本演进容易变化，关键片段才是稳定的行为契约。",
+      vars: {} },
+    { phase: "then", label: "断言消息包含id",
+      code: "HeadersCharacterizationTest.java:205",
+      stmt: 'assertTrue(e.getMessage().contains("id"));',
+      why: "再断言消息里确实点名了是哪一列重复。C1a 钉住的事实：手工表头的重复校验发生在 <code>builder.get()</code> 的 <code>validate()</code>（<code>CSVFormat.java:2791-2802</code>），比任何解析都早。下一页 C1b 看另一个时机——文件表头的重复要等到 <code>format.parse()</code> 才会被发现。",
+      vars: {} },
+  ],
+};
+initScenarioPlayer(SCENARIO);
+</script>
+</body>
+</html>

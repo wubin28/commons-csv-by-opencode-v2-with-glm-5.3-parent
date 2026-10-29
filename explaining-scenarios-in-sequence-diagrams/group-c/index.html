@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C 组 · HeadersCharacterizationTest 时序图导航</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --panel-bg: #ffffff; --border: #d8dee6; --text: #1f2430;
+    --text-dim: #5b6472; --accent: #2f6fed; --accent-soft: #e8f0ff;
+    --given: #2f9e44; --when: #e8590c; --then: #9c36b5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 28px 24px 60px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p.lead { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin-top: 0; }
+  .legend { display: flex; gap: 10px; margin: 14px 0 22px; font-size: 12.5px; }
+  .legend span { padding: 2px 8px; border-radius: 999px; color: #fff; }
+  .legend .given { background: var(--given); }
+  .legend .when { background: var(--when); }
+  .legend .then { background: var(--then); }
+  .card-list { display: flex; flex-direction: column; gap: 12px; }
+  .card {
+    display: block; background: var(--panel-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; text-decoration: none; color: var(--text);
+  }
+  .card:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .card .id { font-weight: 700; color: var(--accent); margin-right: 8px; }
+  .card .title { font-weight: 600; }
+  .card .desc { display: block; margin-top: 4px; font-size: 13px; color: var(--text-dim); }
+  .card .meta { display: block; margin-top: 6px; font-size: 12px; color: var(--text-dim); font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .card .star { color: #e8590c; font-weight: 700; }
+  .footer-note {
+    margin-top: 28px; font-size: 13px; color: var(--text-dim);
+    background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  }
+  .footer-note a { color: var(--accent); }
+  .crumbs { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
+  .crumbs a { color: var(--accent); text-decoration: none; }
+  .crumbs a:hover { text-decoration: underline; }
+  .pair-note {
+    font-size: 12.5px; color: var(--text-dim); margin: -4px 0 4px 2px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- 上一组链接当前指向 group-b（B 组已生成）。若未来 group-b 尚未生成，应改为指向 group-a/index.html。 -->
+  <div class="crumbs"><a href="../group-b/index.html">← 上一组：B 组导航</a></div>
+  <h1>C 组 · 重复列名 / 空列名的容错</h1>
+  <p class="lead">
+    以下 5 个页面用可逐步播放的 UML 时序图，重新讲解
+    <code>HeadersCharacterizationTest.DuplicateAndBlankHeaders</code> 的 5 个测试用例：验证重复列名 /
+    空列名在不同 <code>DuplicateHeaderMode</code> 下的容错现状，以及这些校验<b>在哪个时机</b>抛错——
+    手工表头在 <code>builder.get()</code>（build 期）就被拦住，文件表头要等到 <code>format.parse()</code>
+    （parse 期，CSVParser 构造期间）才会被发现。这是本次热身最重要的发现之一（见
+    <code>ch02-1-2-scenarios-for-warming-up.md</code> 第二部分、<code>ch02-1-3-debug-guide.md</code> C 组部分）。
+  </p>
+  <div class="legend">
+    <span class="given">Given</span>
+    <span class="when">When</span>
+    <span class="then">Then</span>
+  </div>
+
+  <div class="card-list">
+    <a class="card" href="c1a-duplicateManualHeaderWithDisallowThrowsAtFormatBuild-in-sequence-diagram.html">
+      <span class="id">C1a</span><span class="title">手工表头重复 + DISALLOW → builder.get()（build 期）就抛错</span>
+      <span class="desc">异常在构造 CSVFormat 时就发生，连 CSVParser 都未被创建，本页没有"虚拟 CSV 文件"。</span>
+      <span class="meta">duplicateManualHeaderWithDisallowThrowsAtFormatBuild（:200-206）</span>
+    </a>
+    <a class="card" href="c1b-duplicateFileHeaderWithDisallowThrowsAtParserCreation-in-sequence-diagram.html">
+      <span class="id">C1b</span><span class="title"><span class="star">★</span> 文件表头重复 + DISALLOW → format.parse()（parse 期）抛错，早于任何数据记录</span>
+      <span class="desc">异常发生在 CSVParser 构造期间建表头时；数据行从未被读取——本次热身最关键的一个测试。</span>
+      <span class="meta">duplicateFileHeaderWithDisallowThrowsAtParserCreation（:210-216）</span>
+    </a>
+    <p class="pair-note">↑ C1a / C1b 是一对：同一个"重复列名该不该报错"的问题，在手工表头与文件表头两条链路上，分别在两个不同的时机被拦住。</p>
+    <a class="card" href="c2-duplicateNameAllowedByDefaultResolvesToLastIndex-in-sequence-diagram.html">
+      <span class="id">C2</span><span class="title">默认模式（ALLOW_ALL）下重复列名不报错，按名取值命中"最后一个"同名列</span>
+      <span class="desc">headerMap.put 对重复列名是覆盖写入；重复列名下 headerMap 是一个有损映射。</span>
+      <span class="meta">duplicateNameAllowedByDefaultResolvesToLastIndex（:220-228）</span>
+    </a>
+    <a class="card" href="c3a-blankHeaderNameIsMappedWhenMissingColumnNamesAllowed-in-sequence-diagram.html">
+      <span class="id">C3a</span><span class="title">空列名在 allowMissingColumnNames(true) 下被允许，"" 本身成为合法的 key</span>
+      <span class="desc">空字符串 header 非 null，照常被 put 进 headerMap——空名列能正常走通按名取值。</span>
+      <span class="meta">blankHeaderNameIsMappedWhenMissingColumnNamesAllowed（:232-241）</span>
+    </a>
+    <a class="card" href="c3b-duplicateBlankHeadersWithDisallowThrowsAtParserCreation-in-sequence-diagram.html">
+      <span class="id">C3b</span><span class="title">两个空列名 + DISALLOW → 用 observedMissing 标志位判定"重复"，parse 期抛错</span>
+      <span class="desc">"是否重复"的判定不是查 headerMap，而是看 observedMissing 标志位——因为空名有没有真的入 map 还取决于 allowMissingColumnNames。</span>
+      <span class="meta">duplicateBlankHeadersWithDisallowThrowsAtParserCreation（:245-251）</span>
+    </a>
+    <p class="pair-note">↑ C3a / C3b 是一对：单个空列名被允许时如何正常映射，两个空列名在 DISALLOW 下如何被判定为重复——建议对照着看。</p>
+  </div>
+
+  <div class="footer-note">
+    每个页面都支持：←/→ 单步播放、自动播放（可调速）、跳到 Given/When/Then、导出整图 PNG/PDF、
+    导出当前步 PNG、按 <code>P</code> 键切换 16:9 演示模式（用于录屏/讲课）。<br />
+    这批页面是时序可视化版本，文字讲解版本见
+    <a href="../../explaining-scenarios-in-html/group-c/index.html">explaining-scenarios-in-html/group-c/</a>（互为补充，不互相替代）。
+  </div>
+</div>
+</body>
+</html>
